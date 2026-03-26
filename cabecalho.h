@@ -8,3 +8,4 @@ typedef struct Cabecalho {
 } Cabecalho;
 
 void inicializarCabecalho(FILE *file);
+void atualizarStatus(FILE *file, char status);

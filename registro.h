@@ -1,0 +1,19 @@
+#include <stdio.h>
+#define TAM_REG 80
+
+typedef struct Registro {
+    int proximo;
+    int codEstacao;
+    int codLinha;
+    int codProxEstacao;
+    int distanciaProxEstacao;
+    int codLinhaIntegra;
+    int codEstIntegra;
+    int tamNomeEstacao;
+    int tamNomeLinha;
+    char *nomeEstacao;
+    char *nomeLinha;
+    char removido;
+} Registro;
+
+void escreverReg(FILE *file, Registro *reg);

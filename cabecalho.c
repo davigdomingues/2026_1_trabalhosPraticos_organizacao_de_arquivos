@@ -9,3 +9,8 @@ void inicializarCabecalho(FILE *file){
     fwrite(&cabecalho.nroEstacoes, sizeof(int), 1, file);
     fwrite(&cabecalho.nroParesEstacao, sizeof(int), 1, file);
 }
+
+void atualizarStatus(FILE *file, char status){
+    fseek(file, 0, SEEK_SET);
+    fwrite(&status, sizeof(char), 1, file);
+}
