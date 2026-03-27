@@ -93,6 +93,8 @@ void selectAll(){
     FILE *file = fopen("arquivo", "rb");
     fseek(file, TAM_CABECALHO, SEEK_SET); 
 
+    Registro *reg = (Registro*) malloc(sizeof(Registro));
+    int regLidos = 0;
     char removido;
     while(fread(&removido, sizeof(char), 1, file)){
         if(removido == '1') {
@@ -102,7 +104,6 @@ void selectAll(){
 
         fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
 
-        Registro *reg = (Registro*) malloc(sizeof(Registro));
 
         //lê os campos do registro e armazena na struct
         fread(&reg->codEstacao, sizeof(int), 1, file);
@@ -127,6 +128,7 @@ void selectAll(){
             nomeLinha[reg->tamNomeLinha] = '\0';
             reg->nomeLinha = nomeLinha;
         }
+        regLidos++;
 
         printReg(reg);
         int tamRestante = TAM_REG - 9 * sizeof(int) - sizeof(char) - reg->tamNomeEstacao - reg->tamNomeLinha;
@@ -134,6 +136,8 @@ void selectAll(){
 
         free(reg->nomeEstacao);
         free(reg->nomeLinha);
-        free(reg);
     }
+
+    if(regLidos == 0) printf("Registro inexistente.\n");
+    free(reg);
 }
