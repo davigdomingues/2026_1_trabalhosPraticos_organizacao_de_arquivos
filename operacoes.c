@@ -4,11 +4,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "c-hashmap/map.h" //usando uma biblioteca, por enquanto. créditos da biblioteca para Mashpoe.
+
+int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
+    free((void*) key);
+    return 0;
+}
 
 void create(){
     FILE *file = fopen("arquivo", "w");
-    //atualizarStatus(file, '1');
     inicializarCabecalho(file);
+
+    int proxRRN = 0;
+    //cria um hashmap para depois obter, eficientemente, o nroEstacoes únicas
+    hashmap *mapEstacoes = hashmap_create();
+    //cria um hashmap para depois obter, eficientemente, o nroParesEstacoes únicas
+    hashmap *mapParesEstacoes = hashmap_create();
 
     FILE *csv = fopen("estacoes.csv", "r");
     char *linha = (char*) malloc(105 * sizeof(char));
@@ -48,11 +59,32 @@ void create(){
             reg->tamNomeLinha = 0; 
         }
         escreverReg(file, reg);
+
+        //salva no hashmap com o nome da estação sendo a chave, para garantir unicidade
+        //o valor salvo não importa
+        hashmap_set(mapEstacoes, strdup(reg->nomeEstacao), reg->tamNomeEstacao+1, reg->codEstacao);
+
+        if(reg->codProxEstacao != -1){
+            char *par = (char*) malloc(sizeof(char) * 10);
+            //constrói uma string para representar unicamente o par
+            snprintf(par, 10, "%d-%d", reg->codEstacao, reg->codProxEstacao);
+            //salva no hashmap. o valor salvo não importa
+            hashmap_set(mapParesEstacoes, par, 10, reg->codProxEstacao);
+        }
+
+        proxRRN++;
     }
+
+    atualizarStatus(file, '1', true);
+    atualizarProxRRN(file, proxRRN, true);
+    atualizarNroEstacoes(file, hashmap_size(mapEstacoes), false); //false porque nroEstacoes é o campo seguinte de proxRRN
+    atualizarNroParesEstacoes(file, hashmap_size(mapParesEstacoes), false); //false porque nroParesEstacoes é o campo seguinte de nroEstacoes
+
+    hashmap_iterate(mapEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapEstacoes);
+    hashmap_iterate(mapParesEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapParesEstacoes);
+
     fclose(csv);
     fclose(file);
-    //atualizarStatus(file, '0');
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 }

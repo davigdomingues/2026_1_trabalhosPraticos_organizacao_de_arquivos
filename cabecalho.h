@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <stdbool.h>
+
 typedef struct Cabecalho {
     char status;
     int topo;
@@ -8,4 +10,7 @@ typedef struct Cabecalho {
 } Cabecalho;
 
 void inicializarCabecalho(FILE *file);
-void atualizarStatus(FILE *file, char status);
+void atualizarStatus(FILE *file, char status, bool seek);
+void atualizarProxRRN(FILE *file, int proxRRN, bool seek);
+void atualizarNroEstacoes(FILE *file, int nroEstacoes, bool seek);
+void atualizarNroParesEstacoes(FILE *file, int nroParesEstacao, bool seek);
