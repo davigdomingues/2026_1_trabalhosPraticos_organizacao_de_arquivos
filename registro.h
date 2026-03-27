@@ -17,3 +17,4 @@ typedef struct Registro {
 } Registro;
 
 void escreverReg(FILE *file, Registro *reg);
+void printReg(Registro *reg);

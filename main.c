@@ -2,6 +2,6 @@
 #include "cabecalho.h"
 
 int main(){
-    create();
+    selectAll();
     return 0;
 }

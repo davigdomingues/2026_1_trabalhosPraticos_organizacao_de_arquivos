@@ -23,3 +23,30 @@ void escreverReg(FILE *file, Registro *reg){
     memset(filler, '$', tamRestante);
     fwrite(filler, sizeof(char), tamRestante, file);
 }
+
+void printReg(Registro *reg){
+    //campos não nulos
+    printf("%d ", reg->codEstacao);
+    printf("%s ", reg->nomeEstacao);
+
+    //campos possívelmente nulos
+    if(reg->codLinha != -1) printf("%d ", reg->codLinha);
+    else printf("%s ", "NULO");
+
+    if(reg->tamNomeLinha != 0) printf("%s ", reg->nomeLinha);
+    else printf("%s ", "NULO");
+
+    if(reg->codProxEstacao != -1) printf("%d ", reg->codProxEstacao);
+    else printf("%s ", "NULO");
+
+    if(reg->distanciaProxEstacao != -1) printf("%d ", reg->distanciaProxEstacao);
+    else printf("%s ", "NULO");
+
+    if(reg->codLinhaIntegra != -1) printf("%d ", reg->codLinhaIntegra);
+    else printf("%s ", "NULO");
+
+    if(reg->codEstIntegra != -1) printf("%d", reg->codEstIntegra);
+    else printf("%s", "NULO");
+
+    printf("\n");
+}

@@ -12,7 +12,7 @@ int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
 }
 
 void create(){
-    FILE *file = fopen("arquivo", "w");
+    FILE *file = fopen("arquivo", "wb");
     inicializarCabecalho(file);
 
     int proxRRN = 0;
@@ -33,7 +33,7 @@ void create(){
 
         Registro *reg = (Registro*) malloc(sizeof(Registro));
         //inicializa a struct com valores que não precisam de tratamento
-        *reg = (Registro) {.removido = 0, .proximo = -1, .codEstacao = codEstacao, .tamNomeEstacao = strlen(nomeEstacao), .nomeEstacao = nomeEstacao};
+        *reg = (Registro) {.removido = '0', .proximo = -1, .codEstacao = codEstacao, .tamNomeEstacao = strlen(nomeEstacao), .nomeEstacao = nomeEstacao};
 
         //campos possívelmente nulos
         char *codLinha = strsep(&linhaPtr, ",");
@@ -87,4 +87,53 @@ void create(){
 
     fclose(csv);
     fclose(file);
+}
+
+void selectAll(){
+    FILE *file = fopen("arquivo", "rb");
+    fseek(file, TAM_CABECALHO, SEEK_SET); 
+
+    char removido;
+    while(fread(&removido, sizeof(char), 1, file)){
+        if(removido == '1') {
+            fseek(file, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
+            continue;
+        }
+
+        fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
+
+        Registro *reg = (Registro*) malloc(sizeof(Registro));
+
+        //lê os campos do registro e armazena na struct
+        fread(&reg->codEstacao, sizeof(int), 1, file);
+        fread(&reg->codLinha, sizeof(int), 1, file);
+        fread(&reg->codProxEstacao, sizeof(int), 1, file);
+        fread(&reg->distanciaProxEstacao, sizeof(int), 1, file);
+        fread(&reg->codLinhaIntegra, sizeof(int), 1, file);
+        fread(&reg->codEstIntegra, sizeof(int), 1, file);
+
+        fread(&reg->tamNomeEstacao, sizeof(int), 1, file);
+        if(reg->tamNomeEstacao != 0){
+            char *nomeEstacao = (char*) malloc( sizeof(char) * reg->tamNomeEstacao);
+            fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, file);
+            nomeEstacao[reg->tamNomeEstacao] = '\0';
+            reg->nomeEstacao = nomeEstacao;
+        }
+
+        fread(&reg->tamNomeLinha, sizeof(int), 1, file);
+        if(reg->tamNomeLinha != 0){
+            char *nomeLinha = (char*) malloc(sizeof(char) * reg->tamNomeLinha);
+            fread(nomeLinha, sizeof(char), reg->tamNomeLinha, file);
+            nomeLinha[reg->tamNomeLinha] = '\0';
+            reg->nomeLinha = nomeLinha;
+        }
+
+        printReg(reg);
+        int tamRestante = TAM_REG - 9 * sizeof(int) - sizeof(char) - reg->tamNomeEstacao - reg->tamNomeLinha;
+        if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
+
+        free(reg->nomeEstacao);
+        free(reg->nomeLinha);
+        free(reg);
+    }
 }

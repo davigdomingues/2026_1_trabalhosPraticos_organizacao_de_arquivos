@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdbool.h>
+#define TAM_CABECALHO 17
 
 typedef struct Cabecalho {
     char status;
