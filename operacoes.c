@@ -11,8 +11,12 @@ int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
     return 0;
 }
 
-void create(){
-    FILE *file = fopen("arquivo", "wb");
+void create(char *arquivoEntrada, char *arquivoSaida){
+    FILE *file = fopen(arquivoSaida, "wb");
+    if(!file){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
     inicializarCabecalho(file);
 
     int proxRRN = 0;
@@ -21,7 +25,12 @@ void create(){
     //cria um hashmap para depois obter, eficientemente, o nroParesEstacoes únicas
     hashmap *mapParesEstacoes = hashmap_create();
 
-    FILE *csv = fopen("estacoes.csv", "r");
+    FILE *csv = fopen(arquivoEntrada, "r");
+    if(!csv){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
     char *linha = (char*) malloc(105 * sizeof(char));
     fgets(linha, 105, csv); //ignora linha de nomes das colunas
     while(fgets(linha, 105, csv) != NULL){
@@ -89,8 +98,12 @@ void create(){
     fclose(file);
 }
 
-void selectAll(){
-    FILE *file = fopen("arquivo", "rb");
+void selectAll(char *arquivoEntrada){
+    FILE *file = fopen(arquivoEntrada, "rb");
+    if(!file){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
     fseek(file, TAM_CABECALHO, SEEK_SET); 
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));

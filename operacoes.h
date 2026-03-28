@@ -1,3 +1,3 @@
 #include <stdio.h>
-void create();
-void selectAll();
+void create(char *arquivoEntrada, char *arquivoSaida);
+void selectAll(char *arquivoEntrada);
