@@ -6,7 +6,7 @@ typedef struct Registro {
     int codEstacao;
     int codLinha;
     int codProxEstacao;
-    int distanciaProxEstacao;
+    int distProxEstacao;
     int codLinhaIntegra;
     int codEstIntegra;
     int tamNomeEstacao;

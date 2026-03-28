@@ -8,7 +8,7 @@ void escreverReg(FILE *file, Registro *reg){
     fwrite(&reg->codEstacao, sizeof(int), 1, file);
     fwrite(&reg->codLinha, sizeof(int), 1, file);
     fwrite(&reg->codProxEstacao, sizeof(int), 1, file);
-    fwrite(&reg->distanciaProxEstacao, sizeof(int), 1, file);
+    fwrite(&reg->distProxEstacao, sizeof(int), 1, file);
     fwrite(&reg->codLinhaIntegra, sizeof(int), 1, file);
     fwrite(&reg->codEstIntegra, sizeof(int), 1, file);
     fwrite(&reg->tamNomeEstacao, sizeof(int), 1, file);
@@ -39,7 +39,7 @@ void printReg(Registro *reg){
     if(reg->codProxEstacao != -1) printf("%d ", reg->codProxEstacao);
     else printf("%s ", "NULO");
 
-    if(reg->distanciaProxEstacao != -1) printf("%d ", reg->distanciaProxEstacao);
+    if(reg->distProxEstacao != -1) printf("%d ", reg->distProxEstacao);
     else printf("%s ", "NULO");
 
     if(reg->codLinhaIntegra != -1) printf("%d ", reg->codLinhaIntegra);
