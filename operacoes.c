@@ -284,6 +284,6 @@ void selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         free(reg->nomeEstacao);
         free(reg->nomeLinha);
     }
-
+    fclose(file);
     return;
 }
