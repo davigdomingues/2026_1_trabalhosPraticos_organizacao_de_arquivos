@@ -20,6 +20,7 @@ int main(){
             scanf("%s", arquivoSaida);
 
             create(arquivoEntrada, arquivoSaida);
+            BinarioNaTela(arquivoSaida);
             break;
         case 2:
             arquivoEntrada = (char*) malloc(sizeof(char) * 100);
