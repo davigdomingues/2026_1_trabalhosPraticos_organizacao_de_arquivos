@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include "fornecidas.h"
 
 int main(){
@@ -65,6 +66,42 @@ int main(){
                 }
             }
             free(pares);
+            break;
+        case 4:
+            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
+            scanf("%s", arquivoEntrada);
+
+            int nRemocoes = 0;
+            scanf("%d", &nRemocoes);
+
+            CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * 8);
+            bool ok = true;
+            for (int i = 0; i < nRemocoes; i++) {
+                int mPares = 0;
+                scanf("%d", &mPares);
+
+                for (int j = 0; j < mPares; j++) {
+                    char *campo = (char*) malloc(sizeof(char) * 20);
+                    char *valor = (char*) malloc(sizeof(char) * 50);
+                    scanf("%s", campo);
+                    ScanQuoteString(valor);
+
+                    paresDelete[j] = (CampoValor){.campo = campo, .valor = valor};
+                }
+
+                if (ok && !deleteWhere(arquivoEntrada, paresDelete, mPares)) {
+                    ok = false;
+                }
+
+                for (int j = 0; j < mPares; j++) {
+                    free(paresDelete[j].campo);
+                    free(paresDelete[j].valor);
+                }
+            }
+
+            free(paresDelete);
+
+            if (ok) BinarioNaTela(arquivoEntrada);
             break;
         default:
             return -1;
