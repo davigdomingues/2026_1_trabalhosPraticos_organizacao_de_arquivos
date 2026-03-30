@@ -305,6 +305,8 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
 
     char status;
     int topo;
+
+    // lê o status e o topo da lista de removidos do cabeçalho
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
@@ -314,6 +316,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     fseek(file, 0, SEEK_SET);
     atualizarStatus(file, '0', false);
 
+    // indica em qual posição está o par campo-valor
     int indexCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
     int indexNomeEstacao = encontrarIndexCampo(pares, mPares, "nomeEstacao");
     int indexCodLinha = encontrarIndexCampo(pares, mPares, "codLinha");
@@ -326,6 +329,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     fseek(file, TAM_CABECALHO, SEEK_SET);
     bool ok = true;
     
+    // varre o arquivo lendo os registros um por um, verificando se cada um deles satisfaz as condições de remoção e, caso sim, removendo-o (ou seja, marcando como removido e atualizando a lista de removidos)
     while (ok) {
         char removido;
         size_t lido = fread(&removido, sizeof(char), 1, file);
@@ -343,6 +347,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         if (fread(&proximo, sizeof(int), 1, file) != 1) { ok = false; break; }
         reg.proximo = proximo;
 
+        // lê os campos do registro e armazena na struct
         if (fread(&reg.codEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
         if (fread(&reg.codLinha, sizeof(int), 1, file) != 1) { ok = false; break; }
         if (fread(&reg.codProxEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
@@ -350,6 +355,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         if (fread(&reg.codLinhaIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
         if (fread(&reg.codEstIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
 
+        // lê o nomeEstacao, se não for um campo NULO
         char *nomeEstacao = "";
         if (fread(&reg.tamNomeEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
         if (reg.tamNomeEstacao > 0) {
@@ -363,6 +369,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
             nomeEstacao[reg.tamNomeEstacao] = '\0';
         }
 
+        // lê o nomeLinha, seguindo mesma lógica de nomeEstacao
         char *nomeLinha = "";
         if (fread(&reg.tamNomeLinha, sizeof(int), 1, file) != 1) {
             if (reg.tamNomeEstacao > 0) free(nomeEstacao);
@@ -387,6 +394,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
 
         int numMatches = 0;
         
+        // verifica se o registro atual satisfaz as condições de remoção e se os campos para os quais a busca inclui um valor a ser buscado satisfazem a condição de match.
         if (indexCodEstacao > -1 && verificarMatchInt(indexCodEstacao, pares[indexCodEstacao].valor, reg.codEstacao)) numMatches++;
         if (indexCodLinha > -1 && verificarMatchInt(indexCodLinha, pares[indexCodLinha].valor, reg.codLinha)) numMatches++;
         if (indexCodProxEstacao > -1 && verificarMatchInt(indexCodProxEstacao, pares[indexCodProxEstacao].valor, reg.codProxEstacao)) numMatches++;
