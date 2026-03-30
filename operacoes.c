@@ -1,5 +1,4 @@
 #include "operacoes.h"
-#include "registro.h"
 #include "cabecalho.h"
 #include <stdbool.h>
 #include <stdio.h>
@@ -255,11 +254,12 @@ bool verificarMatchStr(int index, char *valorQuery, char *valorReg) {
     return false;
 }
 
-void selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
+Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *tamResultados){
     FILE *file = fopen(arquivoEntrada, "rb");
     if(!file){
         printf("Falha no processamento do arquivo.\n");
-        return;
+        *tamResultados = -1;
+        return NULL;
     }
 
     //indica em qual posição está o par campo-valor em questão
@@ -293,6 +293,9 @@ void selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         }
     }
 
+    int maxResultadosTam = 200;
+    Registro *resultados = (Registro*) malloc(sizeof(Registro) * maxResultadosTam);
+    int resIndexLivre = 0;
     int numMatches = 0;
     Registro *reg = (Registro*) malloc(sizeof(Registro));
     char removido;
@@ -349,16 +352,36 @@ void selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         }
         if(verificarMatchStr(indexNomeLinha, pares[indexNomeLinha].valor, reg->nomeLinha)) numMatches++;
 
-        if(numMatches == mPares) printReg(reg);
+        if(numMatches == mPares) {
+            //dobra o tamanho do array de resultados se chegou ao fim 
+            if(resIndexLivre >= maxResultadosTam){
+                maxResultadosTam *= 2;
+                resultados = (Registro*) realloc(resultados, maxResultadosTam * sizeof(Registro));
+            }
+
+            //faz uma copia dos valores diretos
+            Registro novoResultado;
+            novoResultado = *reg;
+    
+            //copia as strings
+            if (reg->tamNomeEstacao > 0) {
+                resultados[resIndexLivre].nomeEstacao = strdup(reg->nomeEstacao);
+            }
+            if (reg->tamNomeLinha > 0) {
+                resultados[resIndexLivre].nomeLinha = strdup(reg->nomeLinha);
+            }
+    
+            resultados[resIndexLivre] = novoResultado;
+            resIndexLivre++;
+        }
         int tamRestante = TAM_REG - 9 * sizeof(int) - sizeof(char) - reg->tamNomeEstacao - reg->tamNomeLinha;
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
 
         numMatches = 0;
-        free(reg->nomeEstacao);
-        free(reg->nomeLinha);
     }
     fclose(file);
-    return;
+    *tamResultados = resIndexLivre;
+    return resultados;
 }
 
 bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){

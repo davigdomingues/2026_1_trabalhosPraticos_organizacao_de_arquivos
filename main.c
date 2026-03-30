@@ -59,7 +59,11 @@ int main(){
                     par->valor = valor;
                     pares[j] = *par;
                 }
-                selectWhere(arquivoEntrada, pares, mPares);
+                int tamResultados;
+                Registro *resultados = selectWhere(arquivoEntrada, pares, mPares, &tamResultados);
+                for (int i = 0; i < tamResultados; i++) {
+                    printReg(&resultados[i]);
+                }
 
                 for (int j = 0; j < mPares; j++) {
                     free(pares[j].campo);
