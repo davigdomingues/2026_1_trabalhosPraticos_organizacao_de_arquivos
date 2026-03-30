@@ -13,6 +13,71 @@ int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
     return 0;
 }
 
+// utilizada após remoções, para garantir que os contadores estejam corretos sem a necessidade de realmente excluir os registros do arquivo
+void recalcularContadores(FILE *file) {
+    // recria os hashmaps para contar as estações e pares de estações únicas, varrendo o arquivo e lendo os registros um por um
+    hashmap *mapEstacoes = hashmap_create();
+    hashmap *mapParesEstacoes = hashmap_create();
+
+    long posOriginal = ftell(file); // salva onde o ponteiro estava
+
+    fseek(file, TAM_CABECALHO, SEEK_SET); // pula o cabeçalho (17 bytes)
+    char removido;
+    
+    while(fread(&removido, sizeof(char), 1, file)) {
+        if (removido == '1') {
+            fseek(file, TAM_REG - 1, SEEK_CUR); // pula o resto do registro removido
+            continue;
+        }
+        
+        int codEstacao, codProxEstacao, tamNomeEstacao, tamNomeLinha;
+        
+        fseek(file, 4, SEEK_CUR); // pula próximo
+        fread(&codEstacao, sizeof(int), 1, file);
+        fseek(file, 4, SEEK_CUR); // pula codLinha
+        fread(&codProxEstacao, sizeof(int), 1, file);
+        fseek(file, 12, SEEK_CUR); // pula distProxEstacao, codLinhaIntegra, codEstIntegra
+        
+        fread(&tamNomeEstacao, sizeof(int), 1, file);
+        char *nomeEstacao = NULL;
+        if (tamNomeEstacao > 0) {
+            nomeEstacao = (char*) malloc((size_t)tamNomeEstacao + 1);
+            fread(nomeEstacao, sizeof(char), tamNomeEstacao, file);
+            nomeEstacao[tamNomeEstacao] = '\0';
+            hashmap_set(mapEstacoes, nomeEstacao, tamNomeEstacao + 1, codEstacao);
+        }
+        
+        fread(&tamNomeLinha, sizeof(int), 1, file);
+        fseek(file, tamNomeLinha, SEEK_CUR); // pula o nomeLinha (não precisamos dele)
+        
+        if (codProxEstacao != -1) {
+            char *par = (char*) malloc(20);
+            snprintf(par, 20, "%d-%d", codEstacao, codProxEstacao);
+            hashmap_set(mapParesEstacoes, par, strlen(par) + 1, codProxEstacao);
+        }
+
+        // pula o lixo ($) para ir para o próximo registro
+        int tamRestante = TAM_REG - 37 - tamNomeEstacao - tamNomeLinha;
+        if (tamRestante > 0) fseek(file, tamRestante, SEEK_CUR);
+    }
+
+    int nroEstacoes = hashmap_size(mapEstacoes);
+    int nroPares = hashmap_size(mapParesEstacoes);
+
+    // escreve os novos contadores ajustados no cabeçalho
+    fseek(file, 9, SEEK_SET); // o byte offset 9 é exatamente onde começa o nroEstacoes
+    fwrite(&nroEstacoes, sizeof(int), 1, file);
+    fwrite(&nroPares, sizeof(int), 1, file);
+
+    // libera a memória
+    hashmap_iterate(mapEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapEstacoes);
+    hashmap_iterate(mapParesEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapParesEstacoes);
+
+    fseek(file, posOriginal, SEEK_SET); // devolve o ponteiro de arquivo para onde estava
+}
+
 static int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo) {
     for (int i = 0; i < mPares; i++) {
         if (strcmp(pares[i].campo, campo) == 0) return i;
@@ -457,6 +522,8 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         fclose(file);
         return false;
     }
+
+    recalcularContadores(file); // atualiza os contadores de estações e pares de estações no cabeçalho após as remoções
 
     fseek(file, 0, SEEK_SET);
     atualizarStatus(file, '1', false);
