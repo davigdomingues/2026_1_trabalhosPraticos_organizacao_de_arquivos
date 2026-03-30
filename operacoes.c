@@ -5,11 +5,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "fornecidas.h"
 #include "c-hashmap/map.h" //usando uma biblioteca, por enquanto. créditos da biblioteca para Mashpoe.
 
 int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
     free((void*) key);
     return 0;
+}
+
+static int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo) {
+    for (int i = 0; i < mPares; i++) {
+        if (strcmp(pares[i].campo, campo) == 0) return i;
+    }
+    return -1;
 }
 
 void create(char *arquivoEntrada, char *arquivoSaida){
@@ -191,7 +199,7 @@ void selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
 
     //indica em qual posição está o par campo-valor em questão
     //e, consequentemente, se a busca inclui um valor a ser buscado
-    //para esse campo 
+    //para esse campo
     int indexCodEstacao = -1;
     int indexNomeEstacao = -1;
     int indexCodLinha = -1;
@@ -286,4 +294,164 @@ void selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     }
     fclose(file);
     return;
+}
+
+bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
+    FILE *file = fopen(arquivoEntrada, "r+b");
+    if(!file){
+        printf("Falha no processamento do arquivo.\n");
+        return false;
+    }
+
+    char status;
+    int topo;
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return false;
+    }
+
+    fseek(file, 0, SEEK_SET);
+    atualizarStatus(file, '0', false);
+
+    int indexCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
+    int indexNomeEstacao = encontrarIndexCampo(pares, mPares, "nomeEstacao");
+    int indexCodLinha = encontrarIndexCampo(pares, mPares, "codLinha");
+    int indexNomeLinha = encontrarIndexCampo(pares, mPares, "nomeLinha");
+    int indexCodProxEstacao = encontrarIndexCampo(pares, mPares, "codProxEstacao");
+    int indexDistProxEstacao = encontrarIndexCampo(pares, mPares, "distProxEstacao");
+    int indexCodLinhaIntegra = encontrarIndexCampo(pares, mPares, "codLinhaIntegra");
+    int indexCodEstIntegra = encontrarIndexCampo(pares, mPares, "codEstIntegra");
+
+    fseek(file, TAM_CABECALHO, SEEK_SET);
+    bool ok = true;
+    
+    while (ok) {
+        char removido;
+        size_t lido = fread(&removido, sizeof(char), 1, file);
+        if (lido != 1) break; // Fim do arquivo (EOF)
+
+        long inicioRegistro = ftell(file) - 1;
+
+        if (removido == '1') {
+            fseek(file, TAM_REG - 1, SEEK_CUR);
+            continue;
+        }
+
+        int proximo;
+        Registro reg;
+        if (fread(&proximo, sizeof(int), 1, file) != 1) { ok = false; break; }
+        reg.proximo = proximo;
+
+        if (fread(&reg.codEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (fread(&reg.codLinha, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (fread(&reg.codProxEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (fread(&reg.distProxEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (fread(&reg.codLinhaIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (fread(&reg.codEstIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
+
+        char *nomeEstacao = "";
+        if (fread(&reg.tamNomeEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (reg.tamNomeEstacao > 0) {
+            nomeEstacao = (char*) malloc((size_t)reg.tamNomeEstacao + 1);
+            if (!nomeEstacao) { ok = false; break; }
+            if (fread(nomeEstacao, sizeof(char), reg.tamNomeEstacao, file) != (size_t)reg.tamNomeEstacao) {
+                free(nomeEstacao);
+                ok = false;
+                break;
+            }
+            nomeEstacao[reg.tamNomeEstacao] = '\0';
+        }
+
+        char *nomeLinha = "";
+        if (fread(&reg.tamNomeLinha, sizeof(int), 1, file) != 1) {
+            if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+            ok = false;
+            break;
+        }
+        if (reg.tamNomeLinha > 0) {
+            nomeLinha = (char*) malloc((size_t)reg.tamNomeLinha + 1);
+            if (!nomeLinha) {
+                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+                ok = false;
+                break;
+            }
+            if (fread(nomeLinha, sizeof(char), reg.tamNomeLinha, file) != (size_t)reg.tamNomeLinha) {
+                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+                free(nomeLinha);
+                ok = false;
+                break;
+            }
+            nomeLinha[reg.tamNomeLinha] = '\0';
+        }
+
+        int numMatches = 0;
+        
+        if (indexCodEstacao > -1 && verificarMatchInt(indexCodEstacao, pares[indexCodEstacao].valor, reg.codEstacao)) numMatches++;
+        if (indexCodLinha > -1 && verificarMatchInt(indexCodLinha, pares[indexCodLinha].valor, reg.codLinha)) numMatches++;
+        if (indexCodProxEstacao > -1 && verificarMatchInt(indexCodProxEstacao, pares[indexCodProxEstacao].valor, reg.codProxEstacao)) numMatches++;
+        if (indexDistProxEstacao > -1 && verificarMatchInt(indexDistProxEstacao, pares[indexDistProxEstacao].valor, reg.distProxEstacao)) numMatches++;
+        if (indexCodLinhaIntegra > -1 && verificarMatchInt(indexCodLinhaIntegra, pares[indexCodLinhaIntegra].valor, reg.codLinhaIntegra)) numMatches++;
+        if (indexCodEstIntegra > -1 && verificarMatchInt(indexCodEstIntegra, pares[indexCodEstIntegra].valor, reg.codEstIntegra)) numMatches++;
+        if (indexNomeEstacao > -1 && verificarMatchStr(indexNomeEstacao, pares[indexNomeEstacao].valor, nomeEstacao)) numMatches++;
+        if (indexNomeLinha > -1 && verificarMatchStr(indexNomeLinha, pares[indexNomeLinha].valor, nomeLinha)) numMatches++;
+
+        int tamRestante = TAM_REG - 9 * (int)sizeof(int) - (int)sizeof(char) - reg.tamNomeEstacao - reg.tamNomeLinha;
+        if (tamRestante < 0 || (tamRestante != 0 && fseek(file, tamRestante, SEEK_CUR) != 0)) {
+            if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+            if (reg.tamNomeLinha > 0) free(nomeLinha);
+            ok = false;
+            break;
+        }
+
+        if (numMatches == mPares) {
+            int rrn = (int)((inicioRegistro - TAM_CABECALHO) / TAM_REG);
+
+            if (fseek(file, inicioRegistro, SEEK_SET) != 0) {
+                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+                if (reg.tamNomeLinha > 0) free(nomeLinha);
+                ok = false;
+                break;
+            }
+
+            char removidoFlag = '1';
+            if (fwrite(&removidoFlag, sizeof(char), 1, file) != 1 || fwrite(&topo, sizeof(int), 1, file) != 1) {
+                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+                if (reg.tamNomeLinha > 0) free(nomeLinha);
+                ok = false;
+                break;
+            }
+
+            topo = rrn;
+            // atualização do topo da lista de removidos no cabeçalho
+            if (fseek(file, 1, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) {
+                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+                if (reg.tamNomeLinha > 0) free(nomeLinha);
+                ok = false;
+                break;
+            }
+
+            // volta para após o registro e continua a varredura normalmente, para o caso de haver mais de um registro a ser removido
+            if (fseek(file, inicioRegistro + TAM_REG, SEEK_SET) != 0) {
+                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+                if (reg.tamNomeLinha > 0) free(nomeLinha);
+                ok = false;
+                break;
+            }
+        }
+
+        if (reg.tamNomeEstacao > 0) free(nomeEstacao);
+        if (reg.tamNomeLinha > 0) free(nomeLinha);
+    }
+
+    if (!ok) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return false;
+    }
+
+    fseek(file, 0, SEEK_SET);
+    atualizarStatus(file, '1', false);
+    fclose(file);
+    return true;
 }
