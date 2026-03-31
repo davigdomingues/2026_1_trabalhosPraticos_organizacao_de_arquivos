@@ -1,3 +1,6 @@
+#ifndef REGISTRO_H
+#define REGISTRO_H
+
 #include <stdio.h>
 #define TAM_REG 80
 
@@ -18,3 +21,5 @@ typedef struct Registro {
 
 void escreverReg(FILE *file, Registro *reg);
 void printReg(Registro *reg);
+
+#endif
