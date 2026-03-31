@@ -85,12 +85,12 @@ static int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo)
     return -1;
 }
 
-void create(char *arquivoEntrada, char *arquivoSaida){
-    FILE *file = fopen(arquivoSaida, "wb");
-    if(!file){
-        printf("Falha no processamento do arquivo.\n");
-        return;
-    }
+int create(char *arquivoEntrada, char *arquivoSaida){
+    //tenta abrir para leitura+escrita
+    FILE *file = fopen(arquivoSaida, "rb+");
+    //se não existir, cria o arquivo
+    if(!file) file = fopen(arquivoSaida, "wb");
+
     inicializarCabecalho(file);
 
     int proxRRN = 0;
@@ -102,7 +102,7 @@ void create(char *arquivoEntrada, char *arquivoSaida){
     FILE *csv = fopen(arquivoEntrada, "r");
     if(!csv){
         printf("Falha no processamento do arquivo.\n");
-        return;
+        return -1;
     }
 
     char *linha = (char*) malloc(105 * sizeof(char));
@@ -158,7 +158,7 @@ void create(char *arquivoEntrada, char *arquivoSaida){
         proxRRN++;
     }
 
-    atualizarStatus(file, '1', true);
+    atualizarStatus(file, '0', true);
     atualizarProxRRN(file, proxRRN, true);
     atualizarNroEstacoes(file, hashmap_size(mapEstacoes), false); //false porque nroEstacoes é o campo seguinte de proxRRN
     atualizarNroParesEstacoes(file, hashmap_size(mapParesEstacoes), false); //false porque nroParesEstacoes é o campo seguinte de nroEstacoes
@@ -170,6 +170,7 @@ void create(char *arquivoEntrada, char *arquivoSaida){
 
     fclose(csv);
     fclose(file);
+    return 0;
 }
 
 void selectAll(char *arquivoEntrada){
@@ -438,7 +439,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         return false;
     }
 
-    atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
+    atualizarStatus(file, '1', true); // atualiza o status para '1' para indicar que o arquivo está sendo modificado
 
     bool ok = true;
     for (int i = 0; i < tamResultados; i++) {
@@ -478,7 +479,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     recalcularContadores(file); // atualiza os contadores de estações e pares de estações no cabeçalho após as remoções
 
     fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '1', false); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
+    atualizarStatus(file, '0', false); // atualiza o status para '0' para indicar que o arquivo está consistente novamente
     fclose(file);
 
     for (int i = 0; i < tamResultados; i++) {

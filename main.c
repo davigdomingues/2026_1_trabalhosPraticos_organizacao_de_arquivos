@@ -19,8 +19,8 @@ int main(){
             scanf("%s", arquivoEntrada);
             scanf("%s", arquivoSaida);
 
-            create(arquivoEntrada, arquivoSaida);
-            BinarioNaTela(arquivoSaida);
+            int res = create(arquivoEntrada, arquivoSaida);
+            if(res >= 0) BinarioNaTela(arquivoSaida);
             break;
         case 2:
             arquivoEntrada = (char*) malloc(sizeof(char) * 100);
@@ -62,6 +62,7 @@ int main(){
                 int tamResultados;
                 int *rrns;
                 Registro *resultados = selectWhere(arquivoEntrada, pares, mPares, &tamResultados, &rrns);
+                if(tamResultados == 0) printf("Registro inexistente.\n");
                 for (int i = 0; i < tamResultados; i++) {
                     printReg(&resultados[i]);
                 }
