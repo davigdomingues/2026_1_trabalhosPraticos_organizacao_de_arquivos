@@ -1,4 +1,5 @@
 #include "operacoes.h"
+#include "registro.h"
 #include "cabecalho.h"
 #include <stdbool.h>
 #include <stdio.h>
@@ -395,9 +396,29 @@ Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *
 }
 
 bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
+    int tamResultados = 0;
+    int *arrayRRNs = NULL;
+
+    // primeiro, obtém os registros que devem ser removidos, para depois ir no arquivo e marcar cada um deles como removido
+    Registro *resultados = selectWhere(arquivoEntrada, pares, mPares, &tamResultados, &arrayRRNs);
+    if (tamResultados < 0) return false;
+
+    if (tamResultados == 0) {
+        free(resultados);
+        free(arrayRRNs);
+        return true;
+    }
+
+    // para cada registro que deve ser removido, acessa-se o arquivo e se marca como removido, além de atualizar a lista de removidos e os contadores do cabeçalho
     FILE *file = fopen(arquivoEntrada, "r+b");
     if(!file){
         printf("Falha no processamento do arquivo.\n");
+        for (int i = 0; i < tamResultados; i++) {
+            if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
+            if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
+        }
+        free(resultados);
+        free(arrayRRNs);
         return false;
     }
 
@@ -408,157 +429,64 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
+        for (int i = 0; i < tamResultados; i++) {
+            if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
+            if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
+        }
+        free(resultados);
+        free(arrayRRNs);
         return false;
     }
 
-    atualizarStatus(file, '0', true);
+    atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
 
-    // indica em qual posição está o par campo-valor
-    int indexCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
-    int indexNomeEstacao = encontrarIndexCampo(pares, mPares, "nomeEstacao");
-    int indexCodLinha = encontrarIndexCampo(pares, mPares, "codLinha");
-    int indexNomeLinha = encontrarIndexCampo(pares, mPares, "nomeLinha");
-    int indexCodProxEstacao = encontrarIndexCampo(pares, mPares, "codProxEstacao");
-    int indexDistProxEstacao = encontrarIndexCampo(pares, mPares, "distProxEstacao");
-    int indexCodLinhaIntegra = encontrarIndexCampo(pares, mPares, "codLinhaIntegra");
-    int indexCodEstIntegra = encontrarIndexCampo(pares, mPares, "codEstIntegra");
-
-    fseek(file, TAM_CABECALHO, SEEK_SET);
     bool ok = true;
-    
-    // varre o arquivo lendo os registros um por um, verificando se cada um deles satisfaz as condições de remoção e, caso sim, removendo-o (ou seja, marcando como removido e atualizando a lista de removidos)
-    while (ok) {
-        char removido;
-        size_t lido = fread(&removido, sizeof(char), 1, file);
-        if (lido != 1) break; // Fim do arquivo (EOF)
-
-        long inicioRegistro = ftell(file) - 1;
-
-        if (removido == '1') {
-            fseek(file, TAM_REG - 1, SEEK_CUR);
-            continue;
+    for (int i = 0; i < tamResultados; i++) {
+        long inicioRegistro = (long)TAM_CABECALHO + (long)arrayRRNs[i] * (long)TAM_REG;
+        if (fseek(file, inicioRegistro, SEEK_SET) != 0) { 
+            ok = false; break; 
         }
+        char removidoFlag = '1';
 
-        int proximo;
-        Registro reg;
-        if (fread(&proximo, sizeof(int), 1, file) != 1) { ok = false; break; }
-        reg.proximo = proximo;
-
-        // lê os campos do registro e armazena na struct
-        if (fread(&reg.codEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codLinha, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codProxEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.distProxEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codLinhaIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codEstIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
-
-        // lê o nomeEstacao, se não for um campo NULO
-        char *nomeEstacao = "";
-        if (fread(&reg.tamNomeEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (reg.tamNomeEstacao > 0) {
-            nomeEstacao = (char*) malloc((size_t)reg.tamNomeEstacao + 1);
-            if (!nomeEstacao) { ok = false; break; }
-            if (fread(nomeEstacao, sizeof(char), reg.tamNomeEstacao, file) != (size_t)reg.tamNomeEstacao) {
-                free(nomeEstacao);
-                ok = false;
-                break;
-            }
-            nomeEstacao[reg.tamNomeEstacao] = '\0';
+        if (fwrite(&removidoFlag, sizeof(char), 1, file) != 1) { 
+            ok = false; break; 
         }
-
-        // lê o nomeLinha, seguindo mesma lógica de nomeEstacao
-        char *nomeLinha = "";
-        if (fread(&reg.tamNomeLinha, sizeof(int), 1, file) != 1) {
-            if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-            ok = false;
-            break;
-        }
-        if (reg.tamNomeLinha > 0) {
-            nomeLinha = (char*) malloc((size_t)reg.tamNomeLinha + 1);
-            if (!nomeLinha) {
-                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-                ok = false;
-                break;
-            }
-            if (fread(nomeLinha, sizeof(char), reg.tamNomeLinha, file) != (size_t)reg.tamNomeLinha) {
-                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-                free(nomeLinha);
-                ok = false;
-                break;
-            }
-            nomeLinha[reg.tamNomeLinha] = '\0';
-        }
-
-        int numMatches = 0;
         
-        // verifica se o registro atual satisfaz as condições de remoção e se os campos para os quais a busca inclui um valor a ser buscado satisfazem a condição de match.
-        if (indexCodEstacao > -1 && verificarMatchInt(indexCodEstacao, pares[indexCodEstacao].valor, reg.codEstacao)) numMatches++;
-        if (indexCodLinha > -1 && verificarMatchInt(indexCodLinha, pares[indexCodLinha].valor, reg.codLinha)) numMatches++;
-        if (indexCodProxEstacao > -1 && verificarMatchInt(indexCodProxEstacao, pares[indexCodProxEstacao].valor, reg.codProxEstacao)) numMatches++;
-        if (indexDistProxEstacao > -1 && verificarMatchInt(indexDistProxEstacao, pares[indexDistProxEstacao].valor, reg.distProxEstacao)) numMatches++;
-        if (indexCodLinhaIntegra > -1 && verificarMatchInt(indexCodLinhaIntegra, pares[indexCodLinhaIntegra].valor, reg.codLinhaIntegra)) numMatches++;
-        if (indexCodEstIntegra > -1 && verificarMatchInt(indexCodEstIntegra, pares[indexCodEstIntegra].valor, reg.codEstIntegra)) numMatches++;
-        if (indexNomeEstacao > -1 && verificarMatchStr(indexNomeEstacao, pares[indexNomeEstacao].valor, nomeEstacao)) numMatches++;
-        if (indexNomeLinha > -1 && verificarMatchStr(indexNomeLinha, pares[indexNomeLinha].valor, nomeLinha)) numMatches++;
-
-        int tamRestante = TAM_REG - 9 * (int)sizeof(int) - (int)sizeof(char) - reg.tamNomeEstacao - reg.tamNomeLinha;
-        if (tamRestante < 0 || (tamRestante != 0 && fseek(file, tamRestante, SEEK_CUR) != 0)) {
-            if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-            if (reg.tamNomeLinha > 0) free(nomeLinha);
-            ok = false;
-            break;
+        if (fwrite(&topo, sizeof(int), 1, file) != 1) { 
+            ok = false; break; 
         }
+        topo = arrayRRNs[i];
+    }
 
-        if (numMatches == mPares) {
-            int rrn = (int)((inicioRegistro - TAM_CABECALHO) / TAM_REG);
-
-            if (fseek(file, inicioRegistro, SEEK_SET) != 0) {
-                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-                if (reg.tamNomeLinha > 0) free(nomeLinha);
-                ok = false;
-                break;
-            }
-
-            char removidoFlag = '1';
-            if (fwrite(&removidoFlag, sizeof(char), 1, file) != 1 || fwrite(&topo, sizeof(int), 1, file) != 1) {
-                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-                if (reg.tamNomeLinha > 0) free(nomeLinha);
-                ok = false;
-                break;
-            }
-
-            topo = rrn;
-            // atualização do topo da lista de removidos no cabeçalho
-            if (fseek(file, 1, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) {
-                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-                if (reg.tamNomeLinha > 0) free(nomeLinha);
-                ok = false;
-                break;
-            }
-
-            // volta para após o registro e continua a varredura normalmente, para o caso de haver mais de um registro a ser removido
-            if (fseek(file, inicioRegistro + TAM_REG, SEEK_SET) != 0) {
-                if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-                if (reg.tamNomeLinha > 0) free(nomeLinha);
-                ok = false;
-                break;
-            }
-        }
-
-        if (reg.tamNomeEstacao > 0) free(nomeEstacao);
-        if (reg.tamNomeLinha > 0) free(nomeLinha);
+    // se todas as marcações de removido foram feitas com sucesso, atualiza o topo da lista de removidos no cabeçalho para apontar para o primeiro registro removido
+    if (ok) {
+        if (fseek(file, 1, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) ok = false;
     }
 
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
+        for (int i = 0; i < tamResultados; i++) {
+            if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
+            if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
+        }
+        free(resultados);
+        free(arrayRRNs);
         return false;
     }
 
     recalcularContadores(file); // atualiza os contadores de estações e pares de estações no cabeçalho após as remoções
 
     fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '1', false);
+    atualizarStatus(file, '1', false); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
     fclose(file);
+
+    for (int i = 0; i < tamResultados; i++) {
+        if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
+        if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
+    }
+    free(resultados);
+    free(arrayRRNs);
     return true;
 }
+
