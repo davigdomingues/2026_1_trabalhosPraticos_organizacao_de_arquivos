@@ -254,7 +254,7 @@ bool verificarMatchStr(int index, char *valorQuery, char *valorReg) {
     return false;
 }
 
-Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *tamResultados){
+Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *tamResultados, int **rrns){
     FILE *file = fopen(arquivoEntrada, "rb");
     if(!file){
         printf("Falha no processamento do arquivo.\n");
@@ -296,13 +296,19 @@ Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *
     int maxResultadosTam = 200;
     Registro *resultados = (Registro*) malloc(sizeof(Registro) * maxResultadosTam);
     int resIndexLivre = 0;
+
+    int rrnAtual = 0;
+    int *arrayRRNs = (int*) malloc(sizeof(int) * maxResultadosTam);
+
     int numMatches = 0;
     Registro *reg = (Registro*) malloc(sizeof(Registro));
+
     char removido;
     fseek(file, TAM_CABECALHO, SEEK_SET); //pula o cabeçalho
     while(fread(&removido, sizeof(char), 1, file)){
         if(removido == '1') {
             fseek(file, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
+            rrnAtual++;
             continue;
         }
 
@@ -357,6 +363,7 @@ Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *
             if(resIndexLivre >= maxResultadosTam){
                 maxResultadosTam *= 2;
                 resultados = (Registro*) realloc(resultados, maxResultadosTam * sizeof(Registro));
+                arrayRRNs = realloc(arrayRRNs, maxResultadosTam * sizeof(int));
             }
 
             //faz uma copia dos valores diretos
@@ -372,15 +379,18 @@ Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *
             }
     
             resultados[resIndexLivre] = novoResultado;
+            arrayRRNs[resIndexLivre] = rrnAtual;
             resIndexLivre++;
         }
         int tamRestante = TAM_REG - 9 * sizeof(int) - sizeof(char) - reg->tamNomeEstacao - reg->tamNomeLinha;
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
 
         numMatches = 0;
+        rrnAtual++;
     }
     fclose(file);
     *tamResultados = resIndexLivre;
+    *rrns = arrayRRNs;
     return resultados;
 }
 
@@ -401,8 +411,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         return false;
     }
 
-    fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '0', false);
+    atualizarStatus(file, '0', true);
 
     // indica em qual posição está o par campo-valor
     int indexCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");

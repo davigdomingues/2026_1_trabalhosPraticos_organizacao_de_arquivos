@@ -60,7 +60,8 @@ int main(){
                     pares[j] = *par;
                 }
                 int tamResultados;
-                Registro *resultados = selectWhere(arquivoEntrada, pares, mPares, &tamResultados);
+                int *rrns;
+                Registro *resultados = selectWhere(arquivoEntrada, pares, mPares, &tamResultados, &rrns);
                 for (int i = 0; i < tamResultados; i++) {
                     printReg(&resultados[i]);
                 }
