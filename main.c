@@ -91,7 +91,16 @@ int main(){
                     char *campo = (char*) malloc(sizeof(char) * 20);
                     char *valor = (char*) malloc(sizeof(char) * 50);
                     scanf("%s", campo);
-                    ScanQuoteString(valor);
+
+                    int valorInt;
+                    //se o valor não for um inteiro
+                    if(scanf("%d", &valorInt) <= 0) {
+                        //pega a string entre aspas
+                        ScanQuoteString(valor);
+                    } else {
+                        //se for inteiro, salva como string para padronizar
+                        snprintf(valor, sizeof(valor), "%d", valorInt);
+                    }
 
                     paresDelete[j] = (CampoValor){.campo = campo, .valor = valor};
                 }

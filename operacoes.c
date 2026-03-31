@@ -91,8 +91,6 @@ int create(char *arquivoEntrada, char *arquivoSaida){
     //se não existir, cria o arquivo
     if(!file) file = fopen(arquivoSaida, "wb");
 
-    inicializarCabecalho(file);
-
     int proxRRN = 0;
     //cria um hashmap para depois obter, eficientemente, o nroEstacoes únicas
     hashmap *mapEstacoes = hashmap_create();
@@ -102,8 +100,11 @@ int create(char *arquivoEntrada, char *arquivoSaida){
     FILE *csv = fopen(arquivoEntrada, "r");
     if(!csv){
         printf("Falha no processamento do arquivo.\n");
+        fclose(file);
         return -1;
     }
+
+    inicializarCabecalho(file);
 
     char *linha = (char*) malloc(105 * sizeof(char));
     fgets(linha, 105, csv); //ignora linha de nomes das colunas
@@ -427,7 +428,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     int topo;
 
     // lê o status e o topo da lista de removidos do cabeçalho
-    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '0' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
         for (int i = 0; i < tamResultados; i++) {
