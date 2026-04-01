@@ -6,6 +6,19 @@
 #include <stdbool.h>
 #include "fornecidas.h"
 
+static bool lerStatusCabecalho(const char *nomeArquivo, char *statusOut) {
+    FILE *f = fopen(nomeArquivo, "rb");
+    if (!f) return false;
+    char status;
+    if (fread(&status, sizeof(char), 1, f) != 1) {
+        fclose(f);
+        return false;
+    }
+    fclose(f);
+    *statusOut = status;
+    return true;
+}
+
 int main(){
     int op;
     scanf("%d", &op);
@@ -162,6 +175,18 @@ int main(){
                     }
 
                     paresUpdate[j] = (CampoValor){.campo = campo, .valor = valor};
+                }
+
+                if (okUpdate) {
+                    bool atualizou = update(arquivoEntrada, arquivoEntrada, paresBusca, mParesBusca, paresUpdate, mParesUpdate);
+                    if (!atualizou) {
+                        char statusCabecalho;
+                        if (!lerStatusCabecalho(arquivoEntrada, &statusCabecalho) || statusCabecalho != '0') {
+                            okUpdate = false; // falha real
+                        } else {
+                            encerrarCedoSemErro = true; // critério não satisfeito: encerra cedo e ainda imprime hash
+                        }
+                    }
                 }
 
                 for (int j = 0; j < mParesBusca; j++) {
