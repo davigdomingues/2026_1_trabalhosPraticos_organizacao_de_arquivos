@@ -116,6 +116,73 @@ int main(){
 
             if (ok) BinarioNaTela(arquivoEntrada);
             break;
+        case 6:
+            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
+            scanf("%s", arquivoEntrada);
+
+            int nAtualizacoes = 0;
+            scanf("%d", &nAtualizacoes);
+
+            CampoValor *paresBusca = (CampoValor*) malloc(sizeof(CampoValor) * 8);
+            CampoValor *paresUpdate = (CampoValor*) malloc(sizeof(CampoValor) * 8);
+            bool okUpdate = true;
+            bool encerrarCedoSemErro = false;
+            for (int i = 0; i < nAtualizacoes; i++) {
+                int mParesBusca = 0;
+                scanf("%d", &mParesBusca);
+
+                for (int j = 0; j < mParesBusca; j++) {
+                    char *campo = (char*) malloc(sizeof(char) * 20);
+                    char *valor = (char*) malloc(sizeof(char) * 50);
+                    scanf("%s", campo);
+
+                    int valorInt;
+                    if(scanf("%d", &valorInt) <= 0) {
+                        ScanQuoteString(valor);
+                    } else {
+                        snprintf(valor, sizeof(valor), "%d", valorInt);
+                    }
+
+                    paresBusca[j] = (CampoValor){.campo = campo, .valor = valor};
+                }
+
+                int mParesUpdate = 0;
+                scanf("%d", &mParesUpdate);
+
+                for (int j = 0; j < mParesUpdate; j++) {
+                    char *campo = (char*) malloc(sizeof(char) * 20);
+                    char *valor = (char*) malloc(sizeof(char) * 50);
+                    scanf("%s", campo);
+
+                    int valorInt;
+                    if(scanf("%d", &valorInt) <= 0) {
+                        ScanQuoteString(valor);
+                    } else {
+                        snprintf(valor, sizeof(valor), "%d", valorInt);
+                    }
+
+                    paresUpdate[j] = (CampoValor){.campo = campo, .valor = valor};
+                }
+
+                for (int j = 0; j < mParesBusca; j++) {
+                    free(paresBusca[j].campo);
+                    free(paresBusca[j].valor);
+                }
+
+                for (int j = 0; j < mParesUpdate; j++) {
+                    free(paresUpdate[j].campo);
+                    free(paresUpdate[j].valor);
+                }
+
+                if (!okUpdate || encerrarCedoSemErro) break; // encerra antes de completar as N atualizações
+            }
+
+            free(paresBusca);
+            free(paresUpdate);
+
+            if (okUpdate) BinarioNaTela(arquivoEntrada);
+
+            break;
         default:
             return -1;
     }
