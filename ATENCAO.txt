@@ -1,0 +1,4 @@
+As funcionalidades para o hashmap das operações solicitadas no Trabalho 1 foram baixadas de bibliotecas Open Source,
+créditos de Mashpoe (https://github.com/Mashpoe/c-hashmap).
+
+Foi-se perguntado acerca do uso para o monitor Renan Trofino, o qual devidamente autorizou.
