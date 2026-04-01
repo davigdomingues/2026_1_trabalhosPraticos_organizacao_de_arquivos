@@ -85,7 +85,7 @@ static int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo)
     return -1;
 }
 
-int create(char *arquivoEntrada, char *arquivoSaida){
+bool create(char *arquivoEntrada, char *arquivoSaida){
     //tenta abrir para leitura+escrita
     FILE *file = fopen(arquivoSaida, "rb+");
     //se não existir, cria o arquivo
@@ -101,7 +101,7 @@ int create(char *arquivoEntrada, char *arquivoSaida){
     if(!csv){
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        return -1;
+        return false;
     }
 
     inicializarCabecalho(file);
@@ -171,7 +171,7 @@ int create(char *arquivoEntrada, char *arquivoSaida){
 
     fclose(csv);
     fclose(file);
-    return 0;
+    return true;
 }
 
 void selectAll(char *arquivoEntrada){
@@ -257,12 +257,12 @@ bool verificarMatchStr(int index, char *valorQuery, char *valorReg) {
     return false;
 }
 
-Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *tamResultados, int **rrns){
+int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns, bool print){
+    int tamRRNs = -1;
     FILE *file = fopen(arquivoEntrada, "rb");
     if(!file){
         printf("Falha no processamento do arquivo.\n");
-        *tamResultados = -1;
-        return NULL;
+        return tamRRNs;
     }
 
     //indica em qual posição está o par campo-valor em questão
@@ -296,12 +296,11 @@ Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *
         }
     }
 
-    int maxResultadosTam = 200;
-    Registro *resultados = (Registro*) malloc(sizeof(Registro) * maxResultadosTam);
-    int resIndexLivre = 0;
-
+    int maxTamRRNs = 200;
+    int indexLivreRRNs = 0;
     int rrnAtual = 0;
-    int *arrayRRNs = (int*) malloc(sizeof(int) * maxResultadosTam);
+    tamRRNs = 0;
+    int *arrayRRNs = (int*) malloc(sizeof(int) * maxTamRRNs);
 
     int numMatches = 0;
     Registro *reg = (Registro*) malloc(sizeof(Registro));
@@ -362,28 +361,15 @@ Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *
         if(verificarMatchStr(indexNomeLinha, pares[indexNomeLinha].valor, reg->nomeLinha)) numMatches++;
 
         if(numMatches == mPares) {
-            //dobra o tamanho do array de resultados se chegou ao fim 
-            if(resIndexLivre >= maxResultadosTam){
-                maxResultadosTam *= 2;
-                resultados = (Registro*) realloc(resultados, maxResultadosTam * sizeof(Registro));
-                arrayRRNs = realloc(arrayRRNs, maxResultadosTam * sizeof(int));
+            if(print) printReg(reg);
+            
+            //dobra o tamanho do array de RRNs se chegou ao fim 
+            if(indexLivreRRNs >= maxTamRRNs){
+                maxTamRRNs *= 2;
+                arrayRRNs = realloc(arrayRRNs, maxTamRRNs * sizeof(int));
             }
-
-            //faz uma copia dos valores diretos
-            Registro novoResultado;
-            novoResultado = *reg;
-    
-            //copia as strings
-            if (reg->tamNomeEstacao > 0) {
-                resultados[resIndexLivre].nomeEstacao = strdup(reg->nomeEstacao);
-            }
-            if (reg->tamNomeLinha > 0) {
-                resultados[resIndexLivre].nomeLinha = strdup(reg->nomeLinha);
-            }
-    
-            resultados[resIndexLivre] = novoResultado;
-            arrayRRNs[resIndexLivre] = rrnAtual;
-            resIndexLivre++;
+            arrayRRNs[indexLivreRRNs] = rrnAtual;
+            indexLivreRRNs++;
         }
         int tamRestante = TAM_REG - 9 * sizeof(int) - sizeof(char) - reg->tamNomeEstacao - reg->tamNomeLinha;
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
@@ -392,21 +378,22 @@ Registro *selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int *
         rrnAtual++;
     }
     fclose(file);
-    *tamResultados = resIndexLivre;
+
+    if(print && indexLivreRRNs == 0) printf("Registro inexistente.\n");
+    if(print) printf("\n");
+    tamRRNs = indexLivreRRNs;
     *rrns = arrayRRNs;
-    return resultados;
+    return tamRRNs;
 }
 
 bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
-    int tamResultados = 0;
     int *arrayRRNs = NULL;
 
     // primeiro, obtém os registros que devem ser removidos, para depois ir no arquivo e marcar cada um deles como removido
-    Registro *resultados = selectWhere(arquivoEntrada, pares, mPares, &tamResultados, &arrayRRNs);
-    if (tamResultados < 0) return false;
+    int tamRRNs = selectWhere(arquivoEntrada, pares, mPares, &arrayRRNs, false);
+    if (tamRRNs < 0) return false;
 
-    if (tamResultados == 0) {
-        free(resultados);
+    if (tamRRNs == 0) {
         free(arrayRRNs);
         return true;
     }
@@ -415,11 +402,6 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     FILE *file = fopen(arquivoEntrada, "r+b");
     if(!file){
         printf("Falha no processamento do arquivo.\n");
-        for (int i = 0; i < tamResultados; i++) {
-            if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
-            if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
-        }
-        free(resultados);
         free(arrayRRNs);
         return false;
     }
@@ -431,11 +413,6 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '0' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        for (int i = 0; i < tamResultados; i++) {
-            if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
-            if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
-        }
-        free(resultados);
         free(arrayRRNs);
         return false;
     }
@@ -443,7 +420,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     atualizarStatus(file, '1', true); // atualiza o status para '1' para indicar que o arquivo está sendo modificado
 
     bool ok = true;
-    for (int i = 0; i < tamResultados; i++) {
+    for (int i = 0; i < tamRRNs; i++) {
         long inicioRegistro = (long)TAM_CABECALHO + (long)arrayRRNs[i] * (long)TAM_REG;
         if (fseek(file, inicioRegistro, SEEK_SET) != 0) { 
             ok = false; break; 
@@ -468,11 +445,6 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        for (int i = 0; i < tamResultados; i++) {
-            if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
-            if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
-        }
-        free(resultados);
         free(arrayRRNs);
         return false;
     }
@@ -483,11 +455,6 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     atualizarStatus(file, '0', false); // atualiza o status para '0' para indicar que o arquivo está consistente novamente
     fclose(file);
 
-    for (int i = 0; i < tamResultados; i++) {
-        if (resultados[i].tamNomeEstacao > 0) free(resultados[i].nomeEstacao);
-        if (resultados[i].tamNomeLinha > 0) free(resultados[i].nomeLinha);
-    }
-    free(resultados);
     free(arrayRRNs);
     return true;
 }

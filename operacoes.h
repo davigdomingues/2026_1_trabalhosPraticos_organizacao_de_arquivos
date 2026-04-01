@@ -10,9 +10,9 @@ typedef struct CampoValor {
     char *valor;
 } CampoValor;
 
-int create(char *arquivoEntrada, char *arquivoSaida);
+bool create(char *arquivoEntrada, char *arquivoSaida);
 void selectAll(char *arquivoEntrada);
-Registro *selectWhere(char *arquivoEntrada, CampoValor *par, int mPares, int *tamResultados, int **rrns);
+int selectWhere(char *arquivoEntrada, CampoValor *par, int mPares, int **rrns, bool print);
 bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
 bool insert(char *arquivoEntrada, CampoValor *valores, int mValores);
 bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate);

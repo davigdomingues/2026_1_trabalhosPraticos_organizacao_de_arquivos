@@ -12,6 +12,7 @@ int main(){
 
     char *arquivoEntrada = NULL;
     char *arquivoSaida = NULL;
+    bool ok = false;
     switch (op) {
         case 1:
             arquivoEntrada = (char*) malloc(sizeof(char) * 100);
@@ -19,8 +20,8 @@ int main(){
             scanf("%s", arquivoEntrada);
             scanf("%s", arquivoSaida);
 
-            int res = create(arquivoEntrada, arquivoSaida);
-            if(res >= 0) BinarioNaTela(arquivoSaida);
+            ok = create(arquivoEntrada, arquivoSaida);
+            if(ok) BinarioNaTela(arquivoSaida);
             break;
         case 2:
             arquivoEntrada = (char*) malloc(sizeof(char) * 100);
@@ -59,13 +60,9 @@ int main(){
                     par->valor = valor;
                     pares[j] = *par;
                 }
-                int tamResultados;
+
                 int *rrns;
-                Registro *resultados = selectWhere(arquivoEntrada, pares, mPares, &tamResultados, &rrns);
-                if(tamResultados == 0) printf("Registro inexistente.\n");
-                for (int i = 0; i < tamResultados; i++) {
-                    printReg(&resultados[i]);
-                }
+                selectWhere(arquivoEntrada, pares, mPares, &rrns, true);
 
                 for (int j = 0; j < mPares; j++) {
                     free(pares[j].campo);
@@ -82,7 +79,7 @@ int main(){
             scanf("%d", &nRemocoes);
 
             CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * 8);
-            bool ok = true;
+            ok = true;
             for (int i = 0; i < nRemocoes; i++) {
                 int mPares = 0;
                 scanf("%d", &mPares);
