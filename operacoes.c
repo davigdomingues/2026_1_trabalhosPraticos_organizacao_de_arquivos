@@ -42,7 +42,7 @@ static bool registroMatchParBusca(const Registro *reg, const char *nomeEstacao, 
         return valorEhNuloUpdate(valor) ? (reg->codLinhaIntegra == -1) : (atoi(valor) == reg->codLinhaIntegra);
     }
 
-    if (strcmp(campo, "codEstIntegra") == 0 || strcmp(campo, "codEstacaoIntegra") == 0) {
+    if (strcmp(campo, "codEstacaoIntegra") == 0) {
         return valorEhNuloUpdate(valor) ? (reg->codEstIntegra == -1) : (atoi(valor) == reg->codEstIntegra);
     }
 
@@ -752,7 +752,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
                     reg.distProxEstacao = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "codLinhaIntegra") == 0) {
                     reg.codLinhaIntegra = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
-                } else if (strcmp(campo, "codEstIntegra") == 0) {
+                } else if (strcmp(campo, "codEstacaoIntegra") == 0) {
                     reg.codEstIntegra = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "nomeEstacao") == 0) {
                     if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
@@ -819,8 +819,6 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         return false;
     }
 
-    // após atualizar os registros, recalcula os contadores e atualizar o status do arquivo
-    recalcularContadores(file);
     fseek(file, 0, SEEK_SET);
     atualizarStatus(file, '1', false);
     fclose(file);
