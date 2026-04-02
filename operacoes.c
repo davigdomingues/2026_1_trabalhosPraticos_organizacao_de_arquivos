@@ -133,7 +133,7 @@ static void marcarArquivoInconsistente(char *arquivoEntrada) {
     FILE *f = fopen(arquivoEntrada, "r+b");
     if (!f) return;
     fseek(f, 0, SEEK_SET);
-    atualizarStatus(f, '1', false);
+    atualizarStatus(f, '0', false);
     fclose(f);
 }
 
@@ -211,7 +211,7 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
         proxRRN++;
     }
 
-    atualizarStatus(file, '0', true);
+    atualizarStatus(file, '1', true);
     atualizarProxRRN(file, proxRRN, true);
     atualizarNroEstacoes(file, hashmap_size(mapEstacoes), false); //false porque nroEstacoes é o campo seguinte de proxRRN
     atualizarNroParesEstacoes(file, hashmap_size(mapParesEstacoes), false); //false porque nroParesEstacoes é o campo seguinte de nroEstacoes
@@ -462,14 +462,14 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     int topo;
 
     // lê o status e o topo da lista de removidos do cabeçalho
-    if (fread(&status, sizeof(char), 1, file) != 1 || status != '0' || fread(&topo, sizeof(int), 1, file) != 1) {
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
         free(arrayRRNs);
         return false;
     }
 
-    atualizarStatus(file, '1', true); // atualiza o status para '1' para indicar que o arquivo está sendo modificado
+    atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
 
     bool ok = true;
     for (int i = 0; i < tamRRNs; i++) {
@@ -504,7 +504,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     recalcularContadores(file); // atualiza os contadores de estações e pares de estações no cabeçalho após as remoções
 
     fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '0', false); // atualiza o status para '0' para indicar que o arquivo está consistente novamente
+    atualizarStatus(file, '1', false); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
     fclose(file);
 
     free(arrayRRNs);
@@ -524,7 +524,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     int topo;
 
     // lê o status e o topo da lista de removidos do cabeçalho
-    if (fread(&status, sizeof(char), 1, file) != 1 || status != '0' || fread(&topo, sizeof(int), 1, file) != 1) {
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
         marcarArquivoInconsistente(arquivoEntrada);
@@ -638,7 +638,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     }
 
     // lê o status e o topo novamente
-    if (fread(&status, sizeof(char), 1, file) != 1 || status != '0' || fread(&topo, sizeof(int), 1, file) != 1) {
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
         marcarArquivoInconsistente(arquivoEntrada);
@@ -646,7 +646,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     }
 
     fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '1', false);
+    atualizarStatus(file, '0', false);
 
     fseek(file, TAM_CABECALHO, SEEK_SET);
     ok = true;
@@ -822,7 +822,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     // após atualizar os registros, recalcula os contadores e atualizar o status do arquivo
     recalcularContadores(file);
     fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '0', false);
+    atualizarStatus(file, '1', false);
     fclose(file);
     return true;
 }

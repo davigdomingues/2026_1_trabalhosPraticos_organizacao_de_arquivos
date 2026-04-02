@@ -181,7 +181,7 @@ int main(){
                     bool atualizou = update(arquivoEntrada, arquivoEntrada, paresBusca, mParesBusca, paresUpdate, mParesUpdate);
                     if (!atualizou) {
                         char statusCabecalho;
-                        if (!lerStatusCabecalho(arquivoEntrada, &statusCabecalho) || statusCabecalho != '0') {
+                        if (!lerStatusCabecalho(arquivoEntrada, &statusCabecalho) || statusCabecalho != '1') {
                             okUpdate = false; // falha real
                         } else {
                             encerrarCedoSemErro = true; // critério não satisfeito: encerra cedo e ainda imprime hash
