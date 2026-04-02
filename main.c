@@ -5,6 +5,15 @@
 #include <string.h>
 #include <stdbool.h>
 #include "fornecidas.h"
+#include "registro.h"
+
+// tamanho fixo (em bytes) que um registro ocupa sem os dois campos string.
+// layout em registro.c: 1 char removido + 9 inteiros (inclui tamNomeEstacao e tamNomeLinha)
+#define TAM_FIXO_REG ((int)sizeof(char) + 9 * (int)sizeof(int))
+
+// LIMITE é a capacidade (inclui '\0') de um buffer para armazenar um campo string lido da entrada
+// no pior caso, um dos campos (nomeEstacao ou nomeLinha) pode ocupar todo o espaço variável do registro.
+#define LIMITE (TAM_REG - TAM_FIXO_REG + 1)
 
 static bool lerStatusCabecalho(const char *nomeArquivo, char *statusOut) {
     FILE *f = fopen(nomeArquivo, "rb");
@@ -126,6 +135,41 @@ int main(){
             }
 
             free(paresDelete);
+
+            if (ok) BinarioNaTela(arquivoEntrada);
+            break;
+        case 5:
+            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
+            scanf("%s", arquivoEntrada);
+
+            int nInsercoes = 0;
+            scanf("%d", &nInsercoes);
+
+            ok = true;
+
+            // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
+            for (int i = 0; i < nInsercoes; i++) {
+                CampoValor valores[8];
+                char valoresStr[8][LIMITE];
+                valores[0].campo = "codEstacao";
+                valores[1].campo = "nomeEstacao";
+                valores[2].campo = "codLinha";
+                valores[3].campo = "nomeLinha";
+                valores[4].campo = "codProxEstacao";
+                valores[5].campo = "distProxEstacao";
+                valores[6].campo = "codLinhaIntegra";
+                valores[7].campo = "codEstacaoIntegra";
+
+                // lê os valores como string, mesmo os inteiros, para padronizar
+                // se o valor for nulo, salva como string vazia
+                for (int k = 0; k < 8; k++) {
+                    valores[k].valor = valoresStr[k];
+                    ScanQuoteString(valores[k].valor);
+                }
+
+                // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
+                if (ok && !insert(arquivoEntrada, valores, 8)) ok = false;
+            }
 
             if (ok) BinarioNaTela(arquivoEntrada);
             break;
