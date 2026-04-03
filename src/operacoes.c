@@ -5,6 +5,7 @@
 #include "../headers/cabecalho.h"
 #include "../c-hashmap/map.h" //usando uma biblioteca, para Mashpoe.
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -73,10 +74,15 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
         hashmap_set(mapEstacoes, strdup(reg->nomeEstacao), reg->tamNomeEstacao+1, reg->codEstacao);
 
         if(reg->codProxEstacao != -1){
+            int menor = (reg->codEstacao < reg->codProxEstacao) ? reg->codEstacao : reg->codProxEstacao;
+            int maior = (reg->codEstacao < reg->codProxEstacao) ? reg->codProxEstacao : reg->codEstacao;
+
             char *par = (char*) malloc(sizeof(char) * 10);
-            //constrói uma string para representar unicamente o par
-            snprintf(par, 10, "%d-%d", reg->codEstacao, reg->codProxEstacao);
-            //salva no hashmap. o valor salvo não importa
+            //constrói uma string para representar o par unicamente
+            snprintf(par, 10, "%d-%d", menor, maior);
+
+            //salva o par no hashmap
+            //o valor salvo não importa
             hashmap_set(mapParesEstacoes, par, 10, reg->codProxEstacao);
         }
 
