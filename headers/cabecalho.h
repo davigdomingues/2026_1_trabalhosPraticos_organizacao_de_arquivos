@@ -14,9 +14,11 @@ typedef struct Cabecalho {
 } Cabecalho;
 
 void inicializarCabecalho(FILE *file);
+bool lerStatusCabecalho(const char *nomeArquivo, char *statusOut);
 void atualizarStatus(FILE *file, char status, bool seek);
 void atualizarProxRRN(FILE *file, int proxRRN, bool seek);
 void atualizarNroEstacoes(FILE *file, int nroEstacoes, bool seek);
 void atualizarNroParesEstacoes(FILE *file, int nroParesEstacao, bool seek);
+void recalcularContadores(FILE *file);
 
 #endif

@@ -1,238 +1,13 @@
-#include "operacoes.h"
-#include "registro.h"
-#include "cabecalho.h"
+#include "../headers/operacoes.h"
+#include "../headers/registro.h"
+#include "../headers/cabecalho.h"
+#include "../headers/utils.h"
+#include "../headers/cabecalho.h"
+#include "../c-hashmap/map.h" //usando uma biblioteca, para Mashpoe.
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "fornecidas.h"
-#include "c-hashmap/map.h" //usando uma biblioteca, por enquanto. créditos da biblioteca para Mashpoe.
-
-// mesma definição em main.c'
-#define TAM_FIXO_REG ((int)sizeof(char) + 9 * (int)sizeof(int))
-
-// TAM_LIVRE_REG é o espaço restante (pode ser 0) para preenchimento do registro, dado o tamanho atual de nomeEstacao e nomeLinha 
-// valor calculado em runtime
-#define TAM_LIVRE_REG(tamEst, tamLinha) (TAM_REG - TAM_FIXO_REG - tamEst - tamLinha)
-
-int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
-    free((void*) key);
-    return 0;
-}
-
-static bool valorEhNuloUpdate(const char *valor) {
-    if (valor == NULL) return true;
-    return (*valor == '\0' || strcmp(valor, "void") == 0 || strcmp(valor, "empty") == 0);
-}
-
-static bool registroMatchParBusca(const Registro *reg, const char *nomeEstacao, const char *nomeLinha, const CampoValor *par) {
-    const char *campo = par->campo;
-    const char *valor = par->valor;
-
-    if (strcmp(campo, "codEstacao") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->codEstacao == -1) : (atoi(valor) == reg->codEstacao);
-    }
-
-    if (strcmp(campo, "codLinha") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->codLinha == -1) : (atoi(valor) == reg->codLinha);
-    }
-
-    if (strcmp(campo, "codProxEstacao") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->codProxEstacao == -1) : (atoi(valor) == reg->codProxEstacao);
-    }
-
-    if (strcmp(campo, "distProxEstacao") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->distProxEstacao == -1) : (atoi(valor) == reg->distProxEstacao);
-    }
-
-    if (strcmp(campo, "codLinhaIntegra") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->codLinhaIntegra == -1) : (atoi(valor) == reg->codLinhaIntegra);
-    }
-
-    if (strcmp(campo, "codEstIntegra") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->codEstIntegra == -1) : (atoi(valor) == reg->codEstIntegra);
-    }
-
-    if (strcmp(campo, "nomeEstacao") == 0 || strcmp(campo, "nomeEstcao") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->tamNomeEstacao == 0) : (strcmp(valor, nomeEstacao) == 0);
-    }
-
-    if (strcmp(campo, "nomeLinha") == 0) {
-        return valorEhNuloUpdate(valor) ? (reg->tamNomeLinha == 0) : (strcmp(valor, nomeLinha) == 0);
-    }
-
-    return false;
-}
-
-// retorna true se o nome da estação já existe em algum registro ativo do arquivo
-static bool nomeEstacaoJaExiste(FILE *file, const char *nomeEstacao, int tamNomeEstacao) {
-    if (!file || !nomeEstacao || tamNomeEstacao <= 0) return false;
-
-    long posOriginal = ftell(file); // salva a posição original do ponteiro de arquivo para poder voltar depois
-    fseek(file, TAM_CABECALHO, SEEK_SET); // pula o cabeçalho
-
-    // varre o arquivo lendo os registros um por um, procurando por um registro ativo que tenha o mesmo nome de estação
-    while (1) {
-        char removido;
-        if (fread(&removido, sizeof(char), 1, file) != 1) break; // EOF
-
-        if (removido == '1') { // registro removido: pula o resto do registro sem ler
-            fseek(file, TAM_REG - 1, SEEK_CUR);
-            continue;
-        }
-
-        // pula proximo + codEstacao + codLinha + codProxEstacao + dist + codLinhaIntegra + codEstIntegra
-        fseek(file, 7 * (long)sizeof(int), SEEK_CUR);
-
-        int tamLido = 0;
-        if (fread(&tamLido, sizeof(int), 1, file) != 1) break; // EOF
-
-        if (tamLido > 0) {
-            if (tamLido == tamNomeEstacao) { // só lê o nome da estação se o tamanho for igual, para evitar ler strings desnecessárias
-                char buf[256];
-                if (tamLido < (int)sizeof(buf)) { // se o nome da estação couber no buffer, lê diretamente para ele, evitando alocações desnecessárias
-                    if (fread(buf, sizeof(char), (size_t)tamLido, file) != (size_t)tamLido) break;
-                    if (memcmp(buf, nomeEstacao, (size_t)tamLido) == 0) { // compara o nome lido com o nome da estação procurada
-                        fseek(file, posOriginal, SEEK_SET);
-                        return true;
-                    }
-                } else { // se o nome da estação for muito grande para o buffer, lê para uma string alocada dinamicamente
-                    char *tmp = (char*) malloc((size_t)tamLido);
-                    if (!tmp) break;
-                    if (fread(tmp, sizeof(char), (size_t)tamLido, file) != (size_t)tamLido) {
-                        free(tmp);
-                        break;
-                    }
-                    bool igual = (memcmp(tmp, nomeEstacao, (size_t)tamLido) == 0); // compara o nome lido com o nome da estação procurada
-                    free(tmp);
-                    if (igual) { // encontrou um registro ativo com o mesmo nome de estação
-                        fseek(file, posOriginal, SEEK_SET);
-                        return true;
-                    }
-                }
-
-            } else {
-                fseek(file, tamLido, SEEK_CUR); // pula o nome da estação se o tamanho não for igual
-            }
-        }
-
-        int tamNomeLinha = 0;
-        if (fread(&tamNomeLinha, sizeof(int), 1, file) != 1) break; // EOF
-        if (tamNomeLinha > 0) fseek(file, tamNomeLinha, SEEK_CUR); // pula o nome da linha
-
-        int tamRestante = TAM_REG - 37 - tamLido - tamNomeLinha; // calcula o tamanho do lixo ($) a ser pulado para ir para o próximo registro
-        if (tamRestante > 0) fseek(file, tamRestante, SEEK_CUR);
-    }
-
-    fseek(file, posOriginal, SEEK_SET); // devolve o ponteiro de arquivo para a posição original
-    return false;
-}
-
-// utilizada após remoções, para garantir que os contadores estejam corretos sem a necessidade de realmente excluir os registros do arquivo
-void recalcularContadores(FILE *file) {
-    // recria os hashmaps para contar as estações e pares de estações únicas, varrendo o arquivo e lendo os registros um por um
-    hashmap *mapEstacoes = hashmap_create();
-    hashmap *mapParesEstacoes = hashmap_create();
-
-    long posOriginal = ftell(file); // salva onde o ponteiro estava
-
-    fseek(file, TAM_CABECALHO, SEEK_SET); // pula o cabeçalho (17 bytes)
-    char removido;
-    
-    while(fread(&removido, sizeof(char), 1, file)) {
-        if (removido == '1') {
-            fseek(file, TAM_REG - 1, SEEK_CUR); // pula o resto do registro removido
-            continue;
-        }
-        
-        int codEstacao, codProxEstacao, tamNomeEstacao, tamNomeLinha;
-        
-        fseek(file, 4, SEEK_CUR); // pula próximo
-        fread(&codEstacao, sizeof(int), 1, file);
-        fseek(file, 4, SEEK_CUR); // pula codLinha
-        fread(&codProxEstacao, sizeof(int), 1, file);
-        fseek(file, 12, SEEK_CUR); // pula distProxEstacao, codLinhaIntegra, codEstIntegra
-        
-        fread(&tamNomeEstacao, sizeof(int), 1, file);
-        char *nomeEstacao = NULL;
-        if (tamNomeEstacao > 0) {
-            nomeEstacao = (char*) malloc((size_t)tamNomeEstacao + 1);
-            fread(nomeEstacao, sizeof(char), tamNomeEstacao, file);
-            nomeEstacao[tamNomeEstacao] = '\0';
-            hashmap_set(mapEstacoes, nomeEstacao, tamNomeEstacao + 1, codEstacao);
-        }
-        
-        fread(&tamNomeLinha, sizeof(int), 1, file);
-        fseek(file, tamNomeLinha, SEEK_CUR); // pula o nomeLinha (não precisamos dele)
-        
-        if (codProxEstacao != -1) {
-            char *par = (char*) malloc(20);
-            snprintf(par, 20, "%d-%d", codEstacao, codProxEstacao);
-            hashmap_set(mapParesEstacoes, par, strlen(par) + 1, codProxEstacao);
-        }
-
-        // pula o lixo ($) para ir para o próximo registro
-        int tamRestante = TAM_REG - 37 - tamNomeEstacao - tamNomeLinha;
-        if (tamRestante > 0) fseek(file, tamRestante, SEEK_CUR);
-    }
-
-    int nroEstacoes = hashmap_size(mapEstacoes);
-    int nroPares = hashmap_size(mapParesEstacoes);
-
-    // escreve os novos contadores ajustados no cabeçalho
-    fseek(file, 9, SEEK_SET); // o byte offset 9 é exatamente onde começa o nroEstacoes
-    fwrite(&nroEstacoes, sizeof(int), 1, file);
-    fwrite(&nroPares, sizeof(int), 1, file);
-
-    // libera a memória
-    hashmap_iterate(mapEstacoes, freeMapKeys, NULL);
-    hashmap_free(mapEstacoes);
-    hashmap_iterate(mapParesEstacoes, freeMapKeys, NULL);
-    hashmap_free(mapParesEstacoes);
-
-    fseek(file, posOriginal, SEEK_SET); // devolve o ponteiro de arquivo para onde estava
-}
-
-static int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo) {
-    for (int i = 0; i < mPares; i++) {
-        if (strcmp(pares[i].campo, campo) == 0) return i;
-    }
-    return -1;
-}
-
-static void marcarArquivoInconsistente(char *arquivoEntrada) {
-    FILE *f = fopen(arquivoEntrada, "r+b");
-    if (!f) return;
-    fseek(f, 0, SEEK_SET);
-    atualizarStatus(f, '0', false);
-    fclose(f);
-}
-
-bool verificarMatchInt(int index, char *valorQuery, int valorReg) {
-    //a query inclui um valor a ser buscado para esse campo?
-    if (index > -1) {
-        //o valor a ser buscado para esse campo é nulo e o valor do registro atual também é?
-        //ou o valor a ser buscado para esse campo não é nulo e é igual ao valor do registro atual?
-        if ((*valorQuery == '\0' && valorReg == -1) || atoi(valorQuery) == valorReg) {
-            //se sim, houve um match
-            return true;
-        }
-    }
-    //se não, não houve match
-    return false;
-}
-
-bool verificarMatchStr(int index, char *valorQuery, char *valorReg) {
-    //a query inclui um valor a ser buscado para esse campo
-    //e os valores são iguais?
-    if (index > -1 && strcmp(valorQuery, valorReg) == 0) { 
-        //OBS: a comparação também funciona pros casos nulos
-        //porque, simplesmente, a comparação é feita com strings vazias
-        return true;
-    }
-    //se não, não houve match
-    return false;
-}
 
 bool create(char *arquivoEntrada, char *arquivoSaida){
     //tenta abrir para leitura+escrita
@@ -369,7 +144,7 @@ void selectAll(char *arquivoEntrada){
         regLidos++;
 
         printReg(reg);
-        int tamRestante = TAM_REG - 9 * sizeof(int) - sizeof(char) - reg->tamNomeEstacao - reg->tamNomeLinha;
+        int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
 
         free(reg->nomeEstacao);
@@ -494,7 +269,7 @@ int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns,
             arrayRRNs[indexLivreRRNs] = rrnAtual;
             indexLivreRRNs++;
         }
-        int tamRestante = TAM_REG - 9 * sizeof(int) - sizeof(char) - reg->tamNomeEstacao - reg->tamNomeLinha;
+        int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
 
         numMatches = 0;
@@ -574,8 +349,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
 
     recalcularContadores(file); // atualiza os contadores de estações e pares de estações no cabeçalho após as remoções
 
-    fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '1', false); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
+    atualizarStatus(file, '1', true); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
     fclose(file);
 
     free(arrayRRNs);
@@ -608,23 +382,9 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
     }
 
     // atualiza o status para '0' para indicar que o arquivo está sendo modificado e volta o ponteiro para o início do arquivo para depois atualizar os contadores no cabeçalho
-    fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '0', false);
+    atualizarStatus(file, '0', true);
 
-    Registro reg;
-    reg.removido = '0';
-    reg.proximo = -1;
-    reg.codEstacao = -1;
-    reg.codLinha = -1;
-    reg.codProxEstacao = -1;
-    reg.distProxEstacao = -1;
-    reg.codLinhaIntegra = -1;
-    reg.codEstIntegra = -1;
-    reg.tamNomeEstacao = 0;
-    reg.nomeEstacao = "";
-    reg.tamNomeLinha = 0;
-    reg.nomeLinha = "";
-
+    Registro reg = inicializarReg();
     bool ok = true;
 
     // para cada campo a ser atualizado, atualiza o valor na struct do registro, tratando os casos de campos nulos e alocando memória dinamicamente para os campos de string, se necessário
@@ -634,19 +394,19 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
 
         // para os campos inteiros, se o valor for nulo, mantém o valor -1, caso contrário, converte a string para inteiro e atualiza o campo na struct
         if (strcmp(campo, "codEstacao") == 0) {
-            reg.codEstacao = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+            reg.codEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
         } else if (strcmp(campo, "codLinha") == 0) {
-            reg.codLinha = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+            reg.codLinha = valorEhNulo(valor) ? -1 : atoi(valor);
         } else if (strcmp(campo, "codProxEstacao") == 0) {
-            reg.codProxEstacao = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+            reg.codProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
         } else if (strcmp(campo, "distProxEstacao") == 0) {
-            reg.distProxEstacao = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+            reg.distProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
         } else if (strcmp(campo, "codLinhaIntegra") == 0) {
-            reg.codLinhaIntegra = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+            reg.codLinhaIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
         } else if (strcmp(campo, "codEstacaoIntegra") == 0) {
-            reg.codEstIntegra = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+            reg.codEstIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
         } else if (strcmp(campo, "nomeEstacao") == 0) {
-            if (valorEhNuloUpdate(valor)) { // se o valor for nulo, mantém a string vazia e o tamanho 0, para indicar que é um campo nulo
+            if (valorEhNulo(valor)) { // se o valor for nulo, mantém a string vazia e o tamanho 0, para indicar que é um campo nulo
                 reg.nomeEstacao = "";
                 reg.tamNomeEstacao = 0;
             } else { // se o valor não for nulo, aloca dinamicamente uma string para armazenar o nome da estação e atualiza o campo na struct
@@ -660,7 +420,7 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
             }
 
         } else if (strcmp(campo, "nomeLinha") == 0) { // para o nome da linha, o tratamento é o mesmo do nome da estação
-            if (valorEhNuloUpdate(valor)) { // se o valor for nulo, mantém a string vazia e o tamanho 0, para indicar que é um campo nulo
+            if (valorEhNulo(valor)) { // se o valor for nulo, mantém a string vazia e o tamanho 0, para indicar que é um campo nulo
                 reg.nomeLinha = "";
                 reg.tamNomeLinha = 0;
 
@@ -723,10 +483,9 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
 
         // atualiza apenas os contadores do cabeçalho (sem recalcular varrendo o arquivo)
         atualizarNroEstacoes(file, nroEstacoes, true);
-        atualizarNroParesEstacoes(file, nroPares, true);
+        atualizarNroParesEstacoes(file, nroPares, false); //false porque são campos contíguos
         
-        fseek(file, 0, SEEK_SET);
-        atualizarStatus(file, '1', false);
+        atualizarStatus(file, '1', true);
     }
 
     if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
@@ -758,7 +517,12 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        marcarArquivoInconsistente(arquivoEntrada);
+
+        //marca o arquivo como incosistente
+        FILE *f = fopen(arquivoEntrada, "r+b");
+        if (!f) return false;
+        atualizarStatus(f, '0', true);
+        fclose(f);
         return false;
     }
 
@@ -827,7 +591,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         reg.nomeEstacao = nomeEstacao;
         reg.nomeLinha = nomeLinha;
 
-        int tamRestante = TAM_REG - 9 * (int)sizeof(int) - (int)sizeof(char) - reg.tamNomeEstacao - reg.tamNomeLinha;
+        int tamRestante = TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha);
         if (tamRestante < 0 || (tamRestante != 0 && fseek(file, tamRestante, SEEK_CUR) != 0)) {
             if (reg.tamNomeEstacao > 0) free(nomeEstacao);
             if (reg.tamNomeLinha > 0) free(nomeLinha);
@@ -852,7 +616,12 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
 
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
-        marcarArquivoInconsistente(arquivoEntrada);
+
+        //marca o arquivo como incosistente
+        FILE *f = fopen(arquivoEntrada, "r+b");
+        if (!f) return false;
+        atualizarStatus(f, '0', true);
+        fclose(f);
         return false;
     }
 
@@ -872,12 +641,17 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        marcarArquivoInconsistente(arquivoEntrada);
+
+        //marca o arquivo como incosistente
+        FILE *f = fopen(arquivoEntrada, "r+b");
+        if (!f) return false;
+        atualizarStatus(f, '0', true);
+        fclose(f);
+
         return false;
     }
 
-    fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '0', false);
+    atualizarStatus(file, '0', true);
 
     fseek(file, TAM_CABECALHO, SEEK_SET);
     ok = true;
@@ -947,7 +721,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         reg.nomeLinha = nomeLinha;
 
         // pula o lixo ($) para ir para o próximo registro, garantindo que o ponteiro de arquivo esteja na posição correta caso haja update
-        int tamRestante = TAM_REG - 9 * (int)sizeof(int) - (int)sizeof(char) - reg.tamNomeEstacao - reg.tamNomeLinha;
+        int tamRestante = TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha);
         if (tamRestante < 0 || (tamRestante != 0 && fseek(file, tamRestante, SEEK_CUR) != 0)) {
             if (reg.tamNomeEstacao > 0) free(nomeEstacao);
             if (reg.tamNomeLinha > 0) free(nomeLinha);
@@ -974,20 +748,20 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
 
                 // para cada campo, verifica qual é e atualiza o valor na struct de acordo. Se o valor do par de update for nulo, atualiza para -1 (para campos inteiros) ou string vazia (para campos string), conforme o caso.
                 if (strcmp(campo, "codEstacao") == 0) {
-                    reg.codEstacao = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+                    reg.codEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "codLinha") == 0) {
-                    reg.codLinha = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+                    reg.codLinha = valorEhNulo(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "codProxEstacao") == 0) {
-                    reg.codProxEstacao = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+                    reg.codProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "distProxEstacao") == 0) {
-                    reg.distProxEstacao = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+                    reg.distProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "codLinhaIntegra") == 0) {
-                    reg.codLinhaIntegra = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+                    reg.codLinhaIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "codEstIntegra") == 0) {
-                    reg.codEstIntegra = valorEhNuloUpdate(valor) ? -1 : atoi(valor);
+                    reg.codEstIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
                 } else if (strcmp(campo, "nomeEstacao") == 0) {
                     if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
-                    if (valorEhNuloUpdate(valor)) {
+                    if (valorEhNulo(valor)) {
                         reg.nomeEstacao = "";
                         reg.tamNomeEstacao = 0;
                     } else { // para atualizar o campo string, aloca um novo espaço na memória para o novo valor, copia o valor para esse espaço, atualiza o ponteiro e o tamanho na struct. Se o valor do par de update for nulo, atualiza para string vazia e tamanho 0.
@@ -1000,7 +774,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
                     }
                 } else if (strcmp(campo, "nomeLinha") == 0) {
                     if (reg.tamNomeLinha > 0) free(reg.nomeLinha);
-                    if (valorEhNuloUpdate(valor)) {
+                    if (valorEhNulo(valor)) {
                         reg.nomeLinha = "";
                         reg.tamNomeLinha = 0;
                     } else {
@@ -1049,8 +823,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         return false;
     }
 
-    fseek(file, 0, SEEK_SET);
-    atualizarStatus(file, '1', false);
+    atualizarStatus(file, '1', true);
     fclose(file);
     return true;
 }

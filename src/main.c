@@ -1,32 +1,11 @@
-#include "operacoes.h"
-#include "cabecalho.h"
+#include "../headers/operacoes.h"
+#include "../headers/fornecidas.h"
+#include "../headers/cabecalho.h"
+#include "../headers/registro.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "fornecidas.h"
-#include "registro.h"
-
-// tamanho fixo (em bytes) que um registro ocupa sem os dois campos string.
-// layout em registro.c: 1 char removido + 9 inteiros (inclui tamNomeEstacao e tamNomeLinha)
-#define TAM_FIXO_REG ((int)sizeof(char) + 9 * (int)sizeof(int))
-
-// LIMITE é a capacidade (inclui '\0') de um buffer para armazenar um campo string lido da entrada
-// no pior caso, um dos campos (nomeEstacao ou nomeLinha) pode ocupar todo o espaço variável do registro.
-#define LIMITE (TAM_REG - TAM_FIXO_REG + 1)
-
-static bool lerStatusCabecalho(const char *nomeArquivo, char *statusOut) {
-    FILE *f = fopen(nomeArquivo, "rb");
-    if (!f) return false;
-    char status;
-    if (fread(&status, sizeof(char), 1, f) != 1) {
-        fclose(f);
-        return false;
-    }
-    fclose(f);
-    *statusOut = status;
-    return true;
-}
 
 int main(){
     int op;
