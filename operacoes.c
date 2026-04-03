@@ -678,16 +678,16 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
 
     if (ok) {
         if (TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha) < 0) ok = false;
-    }
 
-    if (ok) {
         // atualiza nroEstacoes somente se for um novo nome de estação (contagem por nome)
         if (reg.tamNomeEstacao > 0 && !nomeEstacaoJaExiste(file, reg.nomeEstacao, reg.tamNomeEstacao)) {
             nroEstacoes++;
         }
 
-        // nroParesEstacao é incrementado por inserção
-        nroPares++;
+        // só incrementa os pares se a próxima estação for válida (não nula)
+        if (reg.codProxEstacao != -1) {
+            nroPares++;
+        }
 
         if (topo != -1) {
             // Reaproveita um registro removido.
@@ -708,14 +708,23 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
         } else {
             // Sem removidos: escreve no fim (append)
             if (fseek(file, 0, SEEK_END) != 0) ok = false;
-            if (ok) escreverReg(file, &reg);
-        }
-    }
 
-    if (ok) {
+            // escreve o novo registro no fim do arquivo e incrementa proxRRN para apontar para o próximo registro a ser inserido
+            if (ok) {
+                escreverReg(file, &reg);
+                // somente incrementa o proxRRN quando escreve no fim do arquivo
+                proxRRN++;
+            }
+        }
+
+        // salva o proxRRN atualizado no cabeçalho (sempre salva, pois ele pode ter mudado no else acima)
+        fseek(file, 5, SEEK_SET); 
+        fwrite(&proxRRN, sizeof(int), 1, file);
+
         // atualiza apenas os contadores do cabeçalho (sem recalcular varrendo o arquivo)
         atualizarNroEstacoes(file, nroEstacoes, true);
         atualizarNroParesEstacoes(file, nroPares, true);
+        
         fseek(file, 0, SEEK_SET);
         atualizarStatus(file, '1', false);
     }
