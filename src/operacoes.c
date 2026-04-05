@@ -169,36 +169,9 @@ int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns,
         return tamRRNs;
     }
 
-    //indica em qual posição está o par campo-valor em questão
-    //e, consequentemente, se a busca inclui um valor a ser buscado
-    //para esse campo
-    int indexCodEstacao = -1;
-    int indexNomeEstacao = -1;
-    int indexCodLinha = -1;
-    int indexNomeLinha = -1;
-    int indexCodProxEstacao = -1;
-    int indexDistProxEstacao = -1;
-    int indexCodLinhaIntegra = -1;
-    int indexCodEstIntegra = -1;
-    for (int i = 0; i < mPares; i++) {
-        if(strcmp(pares[i].campo, "codEstacao") == 0){
-            indexCodEstacao = i;
-        } if(strcmp(pares[i].campo, "nomeEstacao") == 0){
-            indexNomeEstacao = i;
-        } if(strcmp(pares[i].campo, "codLinha") == 0){
-            indexCodLinha = i;
-        } if(strcmp(pares[i].campo, "nomeLinha") == 0){
-            indexNomeLinha = i;
-        } if(strcmp(pares[i].campo, "codProxEstacao") == 0){
-            indexCodProxEstacao = i;
-        } if(strcmp(pares[i].campo, "distProxEstacao") == 0){
-            indexDistProxEstacao = i;
-        } if(strcmp(pares[i].campo, "codLinhaIntegra") == 0){
-            indexCodLinhaIntegra = i;
-        } if(strcmp(pares[i].campo, "codEstIntegra") == 0){
-            indexCodEstIntegra = i;
-        }
-    }
+    // indexa os pares por campo (posição fixa), posições sem filtro ficam como NULL
+    CampoValor *porCampo[NUM_CAMPOS_REGISTRO];
+    int numFiltros = popularParesPorCampo(pares, mPares, porCampo);
 
     int maxTamRRNs = 200;
     int indexLivreRRNs = 0;
@@ -221,22 +194,22 @@ int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns,
         fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
 
         fread(&reg->codEstacao, sizeof(int), 1, file);
-        if (verificarMatchInt(indexCodEstacao, pares[indexCodEstacao].valor, reg->codEstacao)) numMatches++;
+        if (porCampo[CAMPO_COD_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_ESTACAO]->valor, reg->codEstacao)) numMatches++;
 
         fread(&reg->codLinha, sizeof(int), 1, file);
-        if (verificarMatchInt(indexCodLinha, pares[indexCodLinha].valor, reg->codLinha)) numMatches++;
+        if (porCampo[CAMPO_COD_LINHA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA]->valor, reg->codLinha)) numMatches++;
 
         fread(&reg->codProxEstacao, sizeof(int), 1, file);
-        if (verificarMatchInt(indexCodProxEstacao, pares[indexCodProxEstacao].valor, reg->codProxEstacao)) numMatches++;
+        if (porCampo[CAMPO_COD_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_PROX_ESTACAO]->valor, reg->codProxEstacao)) numMatches++;
 
         fread(&reg->distProxEstacao, sizeof(int), 1, file);
-        if (verificarMatchInt(indexDistProxEstacao, pares[indexDistProxEstacao].valor, reg->distProxEstacao)) numMatches++;
+        if (porCampo[CAMPO_DIST_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_DIST_PROX_ESTACAO]->valor, reg->distProxEstacao)) numMatches++;
 
         fread(&reg->codLinhaIntegra, sizeof(int), 1, file);
-        if (verificarMatchInt(indexCodLinhaIntegra, pares[indexCodLinhaIntegra].valor, reg->codLinhaIntegra)) numMatches++;
+        if (porCampo[CAMPO_COD_LINHA_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA_INTEGRA]->valor, reg->codLinhaIntegra)) numMatches++;
 
         fread(&reg->codEstIntegra, sizeof(int), 1, file);
-        if (verificarMatchInt(indexCodEstIntegra, pares[indexCodEstIntegra].valor, reg->codEstIntegra)) numMatches++;
+        if (porCampo[CAMPO_COD_EST_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_EST_INTEGRA]->valor, reg->codEstIntegra)) numMatches++;
 
         fread(&reg->tamNomeEstacao, sizeof(int), 1, file);
         //lê o nomeEstacao, se não for um campo NULO
@@ -249,7 +222,7 @@ int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns,
             //se for NULO, só indica que é
             reg->nomeEstacao = "";
         }
-        if(verificarMatchStr(indexNomeEstacao, pares[indexNomeEstacao].valor, reg->nomeEstacao)) numMatches++;
+        if (porCampo[CAMPO_NOME_ESTACAO] && verificarMatchStr(0, porCampo[CAMPO_NOME_ESTACAO]->valor, reg->nomeEstacao)) numMatches++;
 
         fread(&reg->tamNomeLinha, sizeof(int), 1, file);
         //lê o nomeLinha, se não for um campo NULO
@@ -262,9 +235,9 @@ int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns,
             //se for NULO, só indica que é
             reg->nomeLinha = "";
         }
-        if(verificarMatchStr(indexNomeLinha, pares[indexNomeLinha].valor, reg->nomeLinha)) numMatches++;
+        if (porCampo[CAMPO_NOME_LINHA] && verificarMatchStr(0, porCampo[CAMPO_NOME_LINHA]->valor, reg->nomeLinha)) numMatches++;
 
-        if(numMatches == mPares) {
+        if(numMatches == numFiltros) {
             if(print) printReg(reg);
             
             //dobra o tamanho do array de RRNs se chegou ao fim 
@@ -393,54 +366,8 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
     Registro reg = inicializarReg();
     bool ok = true;
 
-    // para cada campo a ser atualizado, atualiza o valor na struct do registro, tratando os casos de campos nulos e alocando memória dinamicamente para os campos de string, se necessário
-    for (int i = 0; i < mValores; i++) {
-        const char *campo = valores[i].campo;
-        const char *valor = valores[i].valor;
-
-        // para os campos inteiros, se o valor for nulo, mantém o valor -1, caso contrário, converte a string para inteiro e atualiza o campo na struct
-        if (strcmp(campo, "codEstacao") == 0) {
-            reg.codEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
-        } else if (strcmp(campo, "codLinha") == 0) {
-            reg.codLinha = valorEhNulo(valor) ? -1 : atoi(valor);
-        } else if (strcmp(campo, "codProxEstacao") == 0) {
-            reg.codProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
-        } else if (strcmp(campo, "distProxEstacao") == 0) {
-            reg.distProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
-        } else if (strcmp(campo, "codLinhaIntegra") == 0) {
-            reg.codLinhaIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
-        } else if (strcmp(campo, "codEstacaoIntegra") == 0) {
-            reg.codEstIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
-        } else if (strcmp(campo, "nomeEstacao") == 0) {
-            if (valorEhNulo(valor)) { // se o valor for nulo, mantém a string vazia e o tamanho 0, para indicar que é um campo nulo
-                reg.nomeEstacao = "";
-                reg.tamNomeEstacao = 0;
-            } else { // se o valor não for nulo, aloca dinamicamente uma string para armazenar o nome da estação e atualiza o campo na struct
-                int novoTam = (int)strlen(valor);
-                char *novo = (char*) malloc((size_t)novoTam + 1);
-                if (!novo) { ok = false; break; }
-
-                memcpy(novo, valor, (size_t)novoTam + 1); // copia a string do valor para a nova string alocada
-                reg.nomeEstacao = novo;
-                reg.tamNomeEstacao = novoTam;
-            }
-
-        } else if (strcmp(campo, "nomeLinha") == 0) { // para o nome da linha, o tratamento é o mesmo do nome da estação
-            if (valorEhNulo(valor)) { // se o valor for nulo, mantém a string vazia e o tamanho 0, para indicar que é um campo nulo
-                reg.nomeLinha = "";
-                reg.tamNomeLinha = 0;
-
-            } else { // se o valor não for nulo, aloca dinamicamente uma string para armazenar o nome da linha e atualiza o campo na struct
-                int novoTam = (int)strlen(valor);
-                char *novo = (char*) malloc((size_t)novoTam + 1);
-                if (!novo) { ok = false; break; }
-
-                memcpy(novo, valor, (size_t)novoTam + 1);
-                reg.nomeLinha = novo;
-                reg.tamNomeLinha = novoTam;
-            }
-        }
-    }
+    // aplica os pares usando utilitário compartilhado (conversão + NULO + strings)
+    if (!aplicarParesEmRegistro(&reg, valores, mValores)) ok = false;
 
     if (ok) {
         if (TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha) < 0) ok = false;
@@ -620,47 +547,9 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
 
         // atualiza os campos na struct reg com os novos valores
         for (int j = 0; j < mParesUpdate; j++) {
-            const char *campo = paresUpdate[j].campo;
-            const char *valor = paresUpdate[j].valor;
-
-            if (strcmp(campo, "codEstacao") == 0) {
-                reg.codEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
-            } else if (strcmp(campo, "codLinha") == 0) {
-                reg.codLinha = valorEhNulo(valor) ? -1 : atoi(valor);
-            } else if (strcmp(campo, "codProxEstacao") == 0) {
-                reg.codProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
-            } else if (strcmp(campo, "distProxEstacao") == 0) {
-                reg.distProxEstacao = valorEhNulo(valor) ? -1 : atoi(valor);
-            } else if (strcmp(campo, "codLinhaIntegra") == 0) {
-                reg.codLinhaIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
-            } else if (strcmp(campo, "codEstIntegra") == 0) {
-                reg.codEstIntegra = valorEhNulo(valor) ? -1 : atoi(valor);
-            } else if (strcmp(campo, "nomeEstacao") == 0) {
-                if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
-                if (valorEhNulo(valor)) {
-                    reg.nomeEstacao = "";
-                    reg.tamNomeEstacao = 0;
-                } else { // se o valor não for nulo, aloca dinamicamente uma string para armazenar o nome da estação e atualiza o campo na struct
-                    int novoTam = (int)strlen(valor);
-                    char *novo = (char*) malloc((size_t)novoTam + 1);
-                    if (!novo) { ok = false; break; }
-                    memcpy(novo, valor, (size_t)novoTam + 1);
-                    reg.nomeEstacao = novo;
-                    reg.tamNomeEstacao = novoTam;
-                }
-            } else if (strcmp(campo, "nomeLinha") == 0) { // para o nome da linha, o tratamento é o mesmo do nome da estação
-                if (reg.tamNomeLinha > 0) free(reg.nomeLinha);
-                if (valorEhNulo(valor)) {
-                    reg.nomeLinha = "";
-                    reg.tamNomeLinha = 0;
-                } else { // mesmo da linha 643, mas para o nome da linha
-                    int novoTam = (int)strlen(valor);
-                    char *novo = (char*) malloc((size_t)novoTam + 1);
-                    if (!novo) { ok = false; break; }
-                    memcpy(novo, valor, (size_t)novoTam + 1);
-                    reg.nomeLinha = novo;
-                    reg.tamNomeLinha = novoTam;
-                }
+            if (!aplicarParEmRegistro(&reg, &paresUpdate[j])) {
+                ok = false;
+                break;
             }
         }
 
