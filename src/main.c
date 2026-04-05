@@ -9,6 +9,8 @@
 
 #define TAM_CAMPO 20
 #define TAM_VALOR 50
+#define TAM_ARQUIVO 100 // tamanho máximo para nome de arquivo
+#define MAX_PARES 8 // número máximo de pares
 
 // função para ler os pares campo-valor da entrada padrão e armazená-los em um array de CampoValor
 static void lerPares(CampoValor *pares, int mPares) {
@@ -37,6 +39,30 @@ static void liberarPares(CampoValor *pares, int mPares) {
     }
 }
 
+// lê um nome de arquivo (token sem espaços) e devolve uma string alocada
+static char *lerNomeArquivo(void) {
+    char *s = (char*) malloc(TAM_ARQUIVO); // aloca o máximo necessário para o nome do arquivo, incluindo o caractere nulo
+    if (!s) return NULL;
+
+    // uso de TAM_ARQUIVO - 1 para limitar a string, em que a forma direta é montada em runtime
+    int width = TAM_ARQUIVO - 1;
+    if (width < 1) { 
+        free(s); 
+        return NULL; 
+    }
+
+    // formatação para ler uma string sem espaços, limitada ao tamanho do buffer alocado
+    char fmt[32];
+    snprintf(fmt, sizeof(fmt), "%%%ds", width); // o %%%ds é usado para criar a formatação correta, resultando na leitura até TAM_ARQUIVO - 1 caracteres
+
+    // se a leitura falhar, libera a memória e retorna NULL
+    if (scanf(fmt, s) != 1) {
+        free(s);
+        return NULL;
+    }
+    return s;
+}
+
 int main(){
     int op;
     scanf("%d", &op);
@@ -46,17 +72,16 @@ int main(){
     bool ok = false;
     switch (op) {
         case 1:
-            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
-            arquivoSaida = (char*) malloc(sizeof(char) * 100);
-            scanf("%s", arquivoEntrada);
-            scanf("%s", arquivoSaida);
+            arquivoEntrada = lerNomeArquivo();
+            arquivoSaida   = lerNomeArquivo();
+            if (!arquivoEntrada || !arquivoSaida) return -1;
 
             ok = create(arquivoEntrada, arquivoSaida);
             if(ok) BinarioNaTela(arquivoSaida);
             break;
         case 2:
-            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
-            scanf("%s", arquivoEntrada);
+            arquivoEntrada = lerNomeArquivo();
+            if (!arquivoEntrada) return -1;
 
             selectAll(arquivoEntrada);
             break;
@@ -66,7 +91,7 @@ int main(){
             int nBuscas = 0;
             scanf("%d", &nBuscas);
 
-            CampoValor *pares = (CampoValor*) malloc(sizeof(CampoValor) * 8); //8 é o número máximo de pares
+            CampoValor *pares = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             for (int i = 0; i < nBuscas; i++) {
                 int mPares = 0;
                 scanf("%d", &mPares);
@@ -81,13 +106,13 @@ int main(){
             free(pares);
             break;
         case 4:
-            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
-            scanf("%s", arquivoEntrada);
+            arquivoEntrada = lerNomeArquivo();
+            if (!arquivoEntrada) return -1;
 
             int nRemocoes = 0;
             scanf("%d", &nRemocoes);
 
-            CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * 8);
+            CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             ok = true;
             for (int i = 0; i < nRemocoes; i++) {
                 int mPares = 0;
@@ -107,8 +132,8 @@ int main(){
             if (ok) BinarioNaTela(arquivoEntrada);
             break;
         case 5:
-            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
-            scanf("%s", arquivoEntrada);
+            arquivoEntrada = lerNomeArquivo();
+            if (!arquivoEntrada) return -1;
 
             int nInsercoes = 0;
             scanf("%d", &nInsercoes);
@@ -117,8 +142,8 @@ int main(){
 
             // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
             for (int i = 0; i < nInsercoes; i++) {
-                CampoValor valores[8];
-                char valoresStr[8][LIMITE];
+                CampoValor valores[MAX_PARES];
+                char valoresStr[MAX_PARES][LIMITE];
                 valores[0].campo = "codEstacao";
                 valores[1].campo = "nomeEstacao";
                 valores[2].campo = "codLinha";
@@ -130,26 +155,26 @@ int main(){
 
                 // lê os valores como string, mesmo os inteiros, para padronizar
                 // se o valor for nulo, salva como string vazia
-                for (int k = 0; k < 8; k++) {
+                for (int k = 0; k < MAX_PARES; k++) {
                     valores[k].valor = valoresStr[k];
                     ScanQuoteString(valores[k].valor);
                 }
 
                 // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
-                if (ok && !insert(arquivoEntrada, valores, 8)) ok = false;
+                if (ok && !insert(arquivoEntrada, valores, MAX_PARES)) ok = false;
             }
 
             if (ok) BinarioNaTela(arquivoEntrada);
             break;
         case 6:
-            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
-            scanf("%s", arquivoEntrada);
+            arquivoEntrada = lerNomeArquivo();
+            if (!arquivoEntrada) return -1;
 
             int nAtualizacoes = 0;
             scanf("%d", &nAtualizacoes);
 
-            CampoValor *paresBusca = (CampoValor*) malloc(sizeof(CampoValor) * 8);
-            CampoValor *paresUpdate = (CampoValor*) malloc(sizeof(CampoValor) * 8);
+            CampoValor *paresBusca = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+            CampoValor *paresUpdate = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             bool okUpdate = true;
             bool encerrarCedoSemErro = false;
             for (int i = 0; i < nAtualizacoes; i++) {
