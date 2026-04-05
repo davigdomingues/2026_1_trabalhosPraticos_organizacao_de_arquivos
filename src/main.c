@@ -7,6 +7,36 @@
 #include <string.h>
 #include <stdbool.h>
 
+#define TAM_CAMPO 20
+#define TAM_VALOR 50
+
+// função para ler os pares campo-valor da entrada padrão e armazená-los em um array de CampoValor
+static void lerPares(CampoValor *pares, int mPares) {
+    for (int j = 0; j < mPares; j++) {
+        char *campo = (char*) malloc(sizeof(char) * TAM_CAMPO);
+        char *valor = (char*) malloc(sizeof(char) * TAM_VALOR);
+        scanf("%s", campo);
+
+        int valorInt;
+        if (scanf("%d", &valorInt) <= 0) {
+            ScanQuoteString(valor);
+        } else {
+            // TAM_VALOR é o tamanho do buffer alocado
+            snprintf(valor, TAM_VALOR, "%d", valorInt);
+        }
+
+        pares[j] = (CampoValor){.campo = campo, .valor = valor};
+    }
+}
+
+// função para liberar a memória alocada para os campos e valores de um array de CampoValor
+static void liberarPares(CampoValor *pares, int mPares) {
+    for (int j = 0; j < mPares; j++) {
+        free(pares[j].campo);
+        free(pares[j].valor);
+    }
+}
+
 int main(){
     int op;
     scanf("%d", &op);
@@ -41,34 +71,12 @@ int main(){
                 int mPares = 0;
                 scanf("%d", &mPares);
 
-                for (int j = 0; j < mPares; j++) {
-                    char *campo = (char*) malloc(sizeof(char) * 20);
-                    char *valor = (char*) malloc(sizeof(char) * 50);
-                    scanf("%s", campo);
-
-                    int valorInt;
-                    //se o valor não for um inteiro
-                    if(scanf("%d", &valorInt) <= 0) {
-                        //pega a string entre aspas
-                        ScanQuoteString(valor);
-                    } else {
-                        //se for inteiro, salva como string para padronizar
-                        snprintf(valor, sizeof(valor), "%d", valorInt);
-                    }
-
-                    CampoValor *par = malloc(sizeof(CampoValor));
-                    par->campo = campo;
-                    par->valor = valor;
-                    pares[j] = *par;
-                }
+                lerPares(pares, mPares);
 
                 int *rrns;
                 selectWhere(arquivoEntrada, pares, mPares, &rrns, true);
 
-                for (int j = 0; j < mPares; j++) {
-                    free(pares[j].campo);
-                    free(pares[j].valor);
-                }
+                liberarPares(pares, mPares);
             }
             free(pares);
             break;
@@ -85,32 +93,13 @@ int main(){
                 int mPares = 0;
                 scanf("%d", &mPares);
 
-                for (int j = 0; j < mPares; j++) {
-                    char *campo = (char*) malloc(sizeof(char) * 20);
-                    char *valor = (char*) malloc(sizeof(char) * 50);
-                    scanf("%s", campo);
-
-                    int valorInt;
-                    //se o valor não for um inteiro
-                    if(scanf("%d", &valorInt) <= 0) {
-                        //pega a string entre aspas
-                        ScanQuoteString(valor);
-                    } else {
-                        //se for inteiro, salva como string para padronizar
-                        snprintf(valor, sizeof(valor), "%d", valorInt);
-                    }
-
-                    paresDelete[j] = (CampoValor){.campo = campo, .valor = valor};
-                }
+                lerPares(paresDelete, mPares);
 
                 if (ok && !deleteWhere(arquivoEntrada, paresDelete, mPares)) {
                     ok = false;
                 }
 
-                for (int j = 0; j < mPares; j++) {
-                    free(paresDelete[j].campo);
-                    free(paresDelete[j].valor);
-                }
+                liberarPares(paresDelete, mPares);
             }
 
             free(paresDelete);
@@ -167,38 +156,12 @@ int main(){
                 int mParesBusca = 0;
                 scanf("%d", &mParesBusca);
 
-                for (int j = 0; j < mParesBusca; j++) {
-                    char *campo = (char*) malloc(sizeof(char) * 20);
-                    char *valor = (char*) malloc(sizeof(char) * 50);
-                    scanf("%s", campo);
-
-                    int valorInt;
-                    if(scanf("%d", &valorInt) <= 0) {
-                        ScanQuoteString(valor);
-                    } else {
-                        snprintf(valor, sizeof(valor), "%d", valorInt);
-                    }
-
-                    paresBusca[j] = (CampoValor){.campo = campo, .valor = valor};
-                }
+                lerPares(paresBusca, mParesBusca);
 
                 int mParesUpdate = 0;
                 scanf("%d", &mParesUpdate);
 
-                for (int j = 0; j < mParesUpdate; j++) {
-                    char *campo = (char*) malloc(sizeof(char) * 20);
-                    char *valor = (char*) malloc(sizeof(char) * 50);
-                    scanf("%s", campo);
-
-                    int valorInt;
-                    if(scanf("%d", &valorInt) <= 0) {
-                        ScanQuoteString(valor);
-                    } else {
-                        snprintf(valor, sizeof(valor), "%d", valorInt);
-                    }
-
-                    paresUpdate[j] = (CampoValor){.campo = campo, .valor = valor};
-                }
+                lerPares(paresUpdate, mParesUpdate);
 
                 if (okUpdate) {
                     bool atualizou = update(arquivoEntrada, arquivoEntrada, paresBusca, mParesBusca, paresUpdate, mParesUpdate);
@@ -212,15 +175,8 @@ int main(){
                     }
                 }
 
-                for (int j = 0; j < mParesBusca; j++) {
-                    free(paresBusca[j].campo);
-                    free(paresBusca[j].valor);
-                }
-
-                for (int j = 0; j < mParesUpdate; j++) {
-                    free(paresUpdate[j].campo);
-                    free(paresUpdate[j].valor);
-                }
+                liberarPares(paresBusca, mParesBusca);
+                liberarPares(paresUpdate, mParesUpdate);
 
                 if (!okUpdate || encerrarCedoSemErro) break; // encerra antes de completar as N atualizações
             }
