@@ -71,7 +71,7 @@ int main(){
     char *arquivoSaida = NULL;
     bool ok = false;
     switch (op) {
-        case 1:
+        case 1: // CREATE
             arquivoEntrada = lerNomeArquivo();
             arquivoSaida   = lerNomeArquivo();
             if (!arquivoEntrada || !arquivoSaida) return -1;
@@ -79,13 +79,13 @@ int main(){
             ok = create(arquivoEntrada, arquivoSaida);
             if(ok) BinarioNaTela(arquivoSaida);
             break;
-        case 2:
+        case 2: // SELECT ALL
             arquivoEntrada = lerNomeArquivo();
             if (!arquivoEntrada) return -1;
 
             selectAll(arquivoEntrada);
             break;
-        case 3:
+        case 3: // SELECT WHERE
             arquivoEntrada = (char*) malloc(sizeof(char) * 100);
             scanf("%s", arquivoEntrada);
             int nBuscas = 0;
@@ -105,40 +105,41 @@ int main(){
             }
             free(pares);
             break;
-        case 4:
+        case 4: // DELETE WHERE
             arquivoEntrada = lerNomeArquivo();
             if (!arquivoEntrada) return -1;
 
-            int nRemocoes = 0;
+            int nRemocoes = 0; // número de operações de remoção a serem realizadas
             scanf("%d", &nRemocoes);
 
-            CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+            CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES); // pares da remoção atual
             ok = true;
+            // loop operações de deleção
             for (int i = 0; i < nRemocoes; i++) {
                 int mPares = 0;
                 scanf("%d", &mPares);
 
-                lerPares(paresDelete, mPares);
+                lerPares(paresDelete, mPares); // leitura dos pares para a operação de remoção atual
 
                 if (ok && !deleteWhere(arquivoEntrada, paresDelete, mPares)) {
-                    ok = false;
+                    ok = false; // como falhou, não tenta as próximas
                 }
 
-                liberarPares(paresDelete, mPares);
+                liberarPares(paresDelete, mPares); // liberação dos pares da operação de remoção atual antes de ler os próximos, para evitar acúmulo de memória alocada
             }
 
             free(paresDelete);
 
             if (ok) BinarioNaTela(arquivoEntrada);
             break;
-        case 5:
+        case 5: // INSERT
             arquivoEntrada = lerNomeArquivo();
             if (!arquivoEntrada) return -1;
 
-            int nInsercoes = 0;
+            int nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
 
-            ok = true;
+            ok = true; // se houver falha em alguma das inserções, ok = false e as próximas inserções não são tentadas
 
             // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
             for (int i = 0; i < nInsercoes; i++) {
@@ -166,31 +167,34 @@ int main(){
 
             if (ok) BinarioNaTela(arquivoEntrada);
             break;
-        case 6:
+        case 6: // UPDATE
             arquivoEntrada = lerNomeArquivo();
             if (!arquivoEntrada) return -1;
 
-            int nAtualizacoes = 0;
+            int nAtualizacoes = 0; // número de operações de atualização a serem realizadas
             scanf("%d", &nAtualizacoes);
 
+            // busca e atualização (pares campo-valor)
             CampoValor *paresBusca = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             CampoValor *paresUpdate = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
-            bool okUpdate = true;
-            bool encerrarCedoSemErro = false;
+            bool okUpdate = true; // 
+            bool encerrarCedoSemErro = false; //
+            // loop operações de atualização
             for (int i = 0; i < nAtualizacoes; i++) {
                 int mParesBusca = 0;
                 scanf("%d", &mParesBusca);
 
-                lerPares(paresBusca, mParesBusca);
+                lerPares(paresBusca, mParesBusca); // leitura dos pares para a parte de busca da operação de atualização atual
 
-                int mParesUpdate = 0;
+                int mParesUpdate = 0; // número de pares para a parte de atualização da operação de atualização atual
                 scanf("%d", &mParesUpdate);
 
                 lerPares(paresUpdate, mParesUpdate);
 
-                if (okUpdate) {
+                if (okUpdate) { // se houver falha em alguma das atualizações, okUpdate = false e as próximas atualizações não são tentadas
                     bool atualizou = update(arquivoEntrada, arquivoEntrada, paresBusca, mParesBusca, paresUpdate, mParesUpdate);
                     if (!atualizou) {
+                        // distingue "não achou" vs falha real via status do cabeçalho
                         char statusCabecalho;
                         if (!lerStatusCabecalho(arquivoEntrada, &statusCabecalho) || statusCabecalho != '1') {
                             okUpdate = false; // falha real
@@ -200,6 +204,7 @@ int main(){
                     }
                 }
 
+                // liberação dos pares da operação de atualização atual antes de ler os próximos
                 liberarPares(paresBusca, mParesBusca);
                 liberarPares(paresUpdate, mParesUpdate);
 
@@ -212,7 +217,7 @@ int main(){
             if (okUpdate) BinarioNaTela(arquivoEntrada);
 
             break;
-        default:
+        default: // operação inválida
             return -1;
     }
     free(arquivoEntrada);
