@@ -49,7 +49,6 @@ void atualizarNroParesEstacoes(FILE *file, int nroParesEstacao, bool seek){
     fwrite(&nroParesEstacao, sizeof(int), 1, file);
 }
 
-// utilizada após remoções, para garantir que os contadores estejam corretos sem a necessidade de realmente excluir os registros do arquivo
 void recalcularContadores(FILE *file) {
     // recria os hashmaps para contar as estações e pares de estações únicas, varrendo o arquivo e lendo os registros um por um
     hashmap *mapEstacoes = hashmap_create();

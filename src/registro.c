@@ -72,7 +72,6 @@ void printReg(Registro *reg){
     printf("\n");
 }
 
-// retorna true se o nome da estação já existe em algum registro ativo do arquivo
 bool nomeEstacaoJaExiste(FILE *file, const char *nomeEstacao, int tamNomeEstacao) {
     if (!file || !nomeEstacao || tamNomeEstacao <= 0) return false;
 

@@ -57,7 +57,14 @@ void escreverReg(FILE *file, Registro *reg);
  */
 void printReg(Registro *reg);
 
-
+/** @brief Verifica se uma estação já existe em um arquivo.
+ * 
+ * @param file arquivo aberto
+ * @param nomeEstacao nome da estação a ser verificada
+ * @param tamNomeEstacao tamanho do nome da estação
+ * @return true se a estação já existir
+ * @return false se a estação não existir
+ */
 bool nomeEstacaoJaExiste(FILE *file, const char *nomeEstacao, int tamNomeEstacao);
 
 #endif

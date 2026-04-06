@@ -20,7 +20,13 @@ typedef struct Cabecalho {
  */
 void inicializarCabecalho(FILE *file);
 
-
+/**
+ * @brief lê o valor do status do cabeçalho de um arquivo
+ * 
+ * @param nomeArquivo nome do arquivo a ser lido
+ * @param statusOut ponteiro para armazenar o valor do status lido
+ * @return true se a leitura foi bem-sucedida, false caso contrário
+ */
 bool lerStatusCabecalho(const char *nomeArquivo, char *statusOut);
 
 
@@ -63,7 +69,12 @@ void atualizarNroEstacoes(FILE *file, int nroEstacoes, bool seek);
  */
 void atualizarNroParesEstacoes(FILE *file, int nroParesEstacao, bool seek);
 
-
+/**
+ * @brief recalcula os contadores do cabeçalho do arquivo, lendo o arquivo e contando o número de estações e pares de estações,
+ * utilizada após remoções, para garantir que os contadores estejam corretos sem a necessidade de realmente excluir os registros do arquivo
+ * 
+ * @param file arquivo aberto
+ */
 void recalcularContadores(FILE *file);
 
 #endif

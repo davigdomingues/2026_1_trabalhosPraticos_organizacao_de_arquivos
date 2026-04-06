@@ -12,7 +12,11 @@
 #define TAM_ARQUIVO 100 // tamanho máximo para nome de arquivo
 #define MAX_PARES 8 // número máximo de pares
 
-// função para ler os pares campo-valor da entrada padrão e armazená-los em um array de CampoValor
+/** @brief lê os pares campo-valor da entrada padrão e armazená-los em um array de CampoValor
+ * 
+ * @param pares array de CampoValor a ser preenchido
+ * @param mPares tamanho do array de pares
+ */
 static void lerPares(CampoValor *pares, int mPares) {
     for (int j = 0; j < mPares; j++) {
         char *campo = (char*) malloc(sizeof(char) * TAM_CAMPO);
@@ -31,7 +35,11 @@ static void lerPares(CampoValor *pares, int mPares) {
     }
 }
 
-// função para liberar a memória alocada para os campos e valores de um array de CampoValor
+/** @brief libera a memória alocada para os campos e os valores de um array de CampoValor
+ * 
+ * @param pares array de CampoValor a ter sua memória liberada
+ * @param mPares tamanho do array de pares
+ */
 static void liberarPares(CampoValor *pares, int mPares) {
     for (int j = 0; j < mPares; j++) {
         free(pares[j].campo);
@@ -39,7 +47,10 @@ static void liberarPares(CampoValor *pares, int mPares) {
     }
 }
 
-// lê um nome de arquivo (token sem espaços) e devolve uma string alocada
+/** @brief lê um nome de arquivo (token sem espaços) e devolve uma string alocada
+ * 
+ * @return ponteiro para a string alocada, ou NULL em caso de erro
+ */
 static char *lerNomeArquivo(void) {
     char *s = (char*) malloc(TAM_ARQUIVO); // aloca o máximo necessário para o nome do arquivo, incluindo o caractere nulo
     if (!s) return NULL;
