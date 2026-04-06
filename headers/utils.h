@@ -19,9 +19,42 @@ typedef enum CampoRegistroId {
 	CAMPO_COD_EST_INTEGRA = 7
 } CampoRegistroId;
 
+
+/**
+ * @brief libera a memória alocada dinamicamente de uma chave string de um hashmap
+ * 
+ * @param key chave string do hashmap
+ * @param ksize tamanho da string chave do hashmap
+ * @param value valor associado a chave
+ * @param usr hashmap
+ * @return int sinal indica o sucesso da operação
+ */
 int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr);
+
+
+/**
+ * @brief compara o valor especificado em uma busca com o valor (int) de um registro.
+ * 
+ * @param index indica, por meio do sinal, se a busca especifica um valor para esse campo
+ * @param valorQuery valor em string especificado na busca
+ * @param valorReg valor do registro
+ * @return true os valores são iguais
+ * @return false os valores não são iguais ou esse campo não tem um valor especificado na busca
+ */
 bool verificarMatchInt(int index, char *valorQuery, int valorReg);
+
+
+/**
+ * @brief compara o valor especificado em uma busca com o valor (string) de um registro.
+ * 
+ * @param index indica, por meio do sinal, se a busca especifica um valor para esse campo
+ * @param valorQuery valor em string especificado na busca
+ * @param valorReg valor do registro
+ * @return true os valores são iguais
+ * @return false os valores não são iguais ou esse campo não tem um valor especificado na busca
+ */
 bool verificarMatchStr(int index, char *valorQuery, char *valorReg);
+
 bool valorEhNulo(const char *valor);
 bool registroMatchParBusca(const Registro *reg, const char *nomeEstacao, const char *nomeLinha, const CampoValor *par);
 int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo);
