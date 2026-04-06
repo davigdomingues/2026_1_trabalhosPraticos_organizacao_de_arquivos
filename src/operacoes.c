@@ -297,21 +297,22 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
 
     bool ok = true;
+    // loop para marcar os registros como removidos e atualizar a lista de removidos no cabeçalho
     for (int i = 0; i < tamRRNs; i++) {
-        long inicioRegistro = (long)TAM_CABECALHO + (long)arrayRRNs[i] * (long)TAM_REG;
-        if (fseek(file, inicioRegistro, SEEK_SET) != 0) { 
+        long inicioRegistro = (long)TAM_CABECALHO + (long)arrayRRNs[i] * (long)TAM_REG; // calcula o byte offset do registro a ser removido, usando o RRN para acessar diretamente
+        if (fseek(file, inicioRegistro, SEEK_SET) != 0) {  // posiciona o ponteiro no início do registro a ser removido
             ok = false; break; 
         }
         char removidoFlag = '1';
 
-        if (fwrite(&removidoFlag, sizeof(char), 1, file) != 1) { 
+        if (fwrite(&removidoFlag, sizeof(char), 1, file) != 1) {  // marca o registro como removido escrevendo '1' no byte de removido
             ok = false; break; 
         }
         
-        if (fwrite(&topo, sizeof(int), 1, file) != 1) { 
+        if (fwrite(&topo, sizeof(int), 1, file) != 1) {  // escreve o antigo topo da lista de removidos no campo de proxRRN do registro removido, para manter a lista encadeada
             ok = false; break; 
         }
-        topo = arrayRRNs[i];
+        topo = arrayRRNs[i]; // atualiza o topo para o RRN do registro recém-removido, que agora é o primeiro da lista de removidos
     }
 
     // se todas as marcações de removido foram feitas com sucesso, atualiza o topo da lista de removidos no cabeçalho para apontar para o primeiro registro removido
@@ -319,6 +320,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         if (fseek(file, 1, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) ok = false;
     }
 
+    // caso haja algum erro durante o processo de remoção
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
@@ -514,6 +516,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         // leitura dos campos de string, alocando dinamicamente e tratando os casos de campos nulos
         char *nomeEstacao = "";
         if (fread(&reg.tamNomeEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
+        // se o campo não for nulo, aloca memória para a string, lê do arquivo e garante a terminação nula
         if (reg.tamNomeEstacao > 0) {
             nomeEstacao = (char*) malloc((size_t)reg.tamNomeEstacao + 1);
             if (!nomeEstacao) { ok = false; break; }
@@ -529,13 +532,14 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
             if (reg.tamNomeEstacao > 0) free(nomeEstacao);
             ok = false; break;
         }
+        // se o campo não for nulo, aloca memória para a string, lê do arquivo e garante a terminação nula
         if (reg.tamNomeLinha > 0) {
             nomeLinha = (char*) malloc((size_t)reg.tamNomeLinha + 1);
-            if (!nomeLinha) {
+            if (!nomeLinha) { // se falhou a alocação, libera o que já alocou e marca como erro
                 if (reg.tamNomeEstacao > 0) free(nomeEstacao);
                 ok = false; break;
             }
-            if (fread(nomeLinha, sizeof(char), reg.tamNomeLinha, file) != (size_t)reg.tamNomeLinha) {
+            if (fread(nomeLinha, sizeof(char), reg.tamNomeLinha, file) != (size_t)reg.tamNomeLinha) { // se falhou a leitura, libera o que já alocou e marca como erro
                 if (reg.tamNomeEstacao > 0) free(nomeEstacao);
                 free(nomeLinha); ok = false; break;
             }
@@ -565,6 +569,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
             }
         }
 
+        // libera a memória alocada para os campos de string antes de passar para o próximo registro, para evitar vazamentos
         if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
         if (reg.tamNomeLinha > 0) free(reg.nomeLinha);
 
