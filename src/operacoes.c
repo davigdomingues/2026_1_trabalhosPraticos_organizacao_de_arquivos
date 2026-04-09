@@ -135,6 +135,10 @@ void selectAll(char *arquivoEntrada){
             continue;
         }
 
+        // garante estado limpo por iteração (evita usar ponteiros antigos quando o campo é nulo)
+        reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
+        reg->tamNomeLinha = 0; reg->nomeLinha   = "";
+
         fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
 
 
@@ -148,7 +152,8 @@ void selectAll(char *arquivoEntrada){
 
         fread(&reg->tamNomeEstacao, sizeof(int), 1, file);
         if(reg->tamNomeEstacao != 0){
-            char *nomeEstacao = (char*) malloc( sizeof(char) * reg->tamNomeEstacao);
+            char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
+            if (!nomeEstacao) break;
             fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, file);
             nomeEstacao[reg->tamNomeEstacao] = '\0';
             reg->nomeEstacao = nomeEstacao;
@@ -156,7 +161,13 @@ void selectAll(char *arquivoEntrada){
 
         fread(&reg->tamNomeLinha, sizeof(int), 1, file);
         if(reg->tamNomeLinha != 0){
-            char *nomeLinha = (char*) malloc(sizeof(char) * reg->tamNomeLinha);
+            char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha ) + 1); // +1 para o caractere nulo
+            if (!nomeLinha) { 
+                if (reg->tamNomeEstacao > 0) 
+                free(reg->nomeEstacao); 
+                break; 
+            }
+
             fread(nomeLinha, sizeof(char), reg->tamNomeLinha, file);
             nomeLinha[reg->tamNomeLinha] = '\0';
             reg->nomeLinha = nomeLinha;
@@ -167,12 +178,13 @@ void selectAll(char *arquivoEntrada){
         int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
 
-        free(reg->nomeEstacao);
-        free(reg->nomeLinha);
+        if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+        if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
     }
 
     if(regLidos == 0) printf("Registro inexistente.\n");
     free(reg);
+    fclose(file);
 }
 
 int selectAllWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
@@ -217,6 +229,10 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
             continue;
         }
 
+        // garante estado limpo
+        reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
+        reg->tamNomeLinha   = 0; reg->nomeLinha   = "";
+
         fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
 
         fread(&reg->codEstacao, sizeof(int), 1, file);
@@ -240,7 +256,11 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
         fread(&reg->tamNomeEstacao, sizeof(int), 1, file);
         //lê o nomeEstacao, se não for um campo NULO
         if(reg->tamNomeEstacao != 0){
-            char *nomeEstacao = (char*) malloc( sizeof(char) * reg->tamNomeEstacao);
+            char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
+            if (!nomeEstacao) { 
+                free(reg); 
+                return -1; 
+            }
             fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, file);
             nomeEstacao[reg->tamNomeEstacao] = '\0';
             reg->nomeEstacao = nomeEstacao;
@@ -253,7 +273,12 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
         fread(&reg->tamNomeLinha, sizeof(int), 1, file);
         //lê o nomeLinha, se não for um campo NULO
         if(reg->tamNomeLinha != 0){
-            char *nomeLinha = (char*) malloc(sizeof(char) * reg->tamNomeLinha);
+            char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha) + 1); // +1 para o caractere nulo
+            if (!nomeLinha) {
+                if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+                free(reg);
+                return -1;
+            }
             fread(nomeLinha, sizeof(char), reg->tamNomeLinha, file);
             nomeLinha[reg->tamNomeLinha] = '\0';
             reg->nomeLinha = nomeLinha;
@@ -266,6 +291,8 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
         if(numMatches == numFiltros) {
             encontrou = true;
             if(apenasPrimeiroRes){
+                if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+                if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
                 free(reg);
                 return rrnAtual;
             } else {
@@ -274,6 +301,9 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
         }
         int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
+
+        if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+        if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
 
         numMatches = 0;
         rrnAtual++;
@@ -307,7 +337,6 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     }
 
     atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
-    fseek(file, TAM_CABECALHO, SEEK_SET); //pula restante do cabeçalho
 
     int rrn = -1;
     bool ok = true;
