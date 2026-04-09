@@ -3,7 +3,7 @@
 #include "../headers/cabecalho.h"
 #include "../headers/utils.h"
 #include "../headers/cabecalho.h"
-#include "../c-hashmap/map.h" //usando uma biblioteca, para Mashpoe.
+#include "../c-hashmap/map.h" //usando uma biblioteca, créditos para Mashpoe.
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -161,29 +161,30 @@ void selectAll(char *arquivoEntrada){
     free(reg);
 }
 
-int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns, bool print){
-    int tamRRNs = -1;
+int selectAllWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     FILE *file = fopen(arquivoEntrada, "rb");
-    if(!file){
-        printf("Falha no processamento do arquivo.\n");
-        return tamRRNs;
+    return selectWhere(file, pares, mPares, 0, false, true);
+}
+
+int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek){
+    //se seek == true, vai para o rrn de início da busca
+    //se rrnInicial, precisa pular o cabeçalho
+    //caso contrário, assume que o ponteiro do arquivo já está no lugar certo
+    if(seek || rrnInicial == 0){
+        long byteOffsetInicial = (long)TAM_CABECALHO + (long)rrnInicial * (long)TAM_REG;
+        fseek(file, byteOffsetInicial, SEEK_SET);
     }
 
     // indexa os pares por campo (posição fixa), posições sem filtro ficam como NULL
     CampoValor *porCampo[NUM_CAMPOS_REGISTRO];
     int numFiltros = popularParesPorCampo(pares, mPares, porCampo);
 
-    int maxTamRRNs = 200;
-    int indexLivreRRNs = 0;
-    int rrnAtual = 0;
-    tamRRNs = 0;
-    int *arrayRRNs = (int*) malloc(sizeof(int) * maxTamRRNs);
-
+    int rrnAtual = rrnInicial;
     int numMatches = 0;
     Registro *reg = (Registro*) malloc(sizeof(Registro));
 
+    bool encontrou = false;
     char removido;
-    fseek(file, TAM_CABECALHO, SEEK_SET); //pula o cabeçalho
     while(fread(&removido, sizeof(char), 1, file)){
         if(removido == '1') {
             fseek(file, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
@@ -238,15 +239,13 @@ int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns,
         if (porCampo[CAMPO_NOME_LINHA] && verificarMatchStr(0, porCampo[CAMPO_NOME_LINHA]->valor, reg->nomeLinha)) numMatches++;
 
         if(numMatches == numFiltros) {
-            if(print) printReg(reg);
-            
-            //dobra o tamanho do array de RRNs se chegou ao fim 
-            if(indexLivreRRNs >= maxTamRRNs){
-                maxTamRRNs *= 2;
-                arrayRRNs = realloc(arrayRRNs, maxTamRRNs * sizeof(int));
+            encontrou = true;
+            if(apenasPrimeiroRes){
+                free(reg);
+                return rrnAtual;
+            } else {
+                printReg(reg);
             }
-            arrayRRNs[indexLivreRRNs] = rrnAtual;
-            indexLivreRRNs++;
         }
         int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
@@ -254,32 +253,21 @@ int selectWhere(char *arquivoEntrada, CampoValor *pares, int mPares, int **rrns,
         numMatches = 0;
         rrnAtual++;
     }
-    fclose(file);
 
-    if(print && indexLivreRRNs == 0) printf("Registro inexistente.\n");
-    if(print) printf("\n");
-    tamRRNs = indexLivreRRNs;
-    *rrns = arrayRRNs;
-    return tamRRNs;
+    //só imprime na tela se buscou por todos os resultados
+    if(!apenasPrimeiroRes && !encontrou) printf("Registro inexistente.\n");
+    if(!apenasPrimeiroRes) printf("\n");
+    free(reg);
+
+    if(!encontrou) return -1;
+    else return 0;
 }
 
 bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
-    int *arrayRRNs = NULL;
-
-    // primeiro, obtém os registros que devem ser removidos, para depois ir no arquivo e marcar cada um deles como removido
-    int tamRRNs = selectWhere(arquivoEntrada, pares, mPares, &arrayRRNs, false);
-    if (tamRRNs < 0) return false;
-
-    if (tamRRNs == 0) {
-        free(arrayRRNs);
-        return true;
-    }
-
     // para cada registro que deve ser removido, acessa-se o arquivo e se marca como removido, além de atualizar a lista de removidos e os contadores do cabeçalho
     FILE *file = fopen(arquivoEntrada, "r+b");
     if(!file){
         printf("Falha no processamento do arquivo.\n");
-        free(arrayRRNs);
         return false;
     }
 
@@ -290,16 +278,21 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        free(arrayRRNs);
         return false;
     }
 
     atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
+    fseek(file, TAM_CABECALHO, SEEK_SET); //pula restante do cabeçalho
 
+    int rrn = -1;
     bool ok = true;
     // loop para marcar os registros como removidos e atualizar a lista de removidos no cabeçalho
-    for (int i = 0; i < tamRRNs; i++) {
-        long inicioRegistro = (long)TAM_CABECALHO + (long)arrayRRNs[i] * (long)TAM_REG; // calcula o byte offset do registro a ser removido, usando o RRN para acessar diretamente
+    while(true){
+        //busca o próximo registro que satisfaz os critérios de remoção
+        rrn = selectWhere(file, pares, mPares, rrn+1, true, true); //+1 para não ficar retornando sempre o mesmo rrn
+        if(rrn < 0) break;
+
+        long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG; // calcula o byte offset do registro a ser removido, usando o RRN para acessar diretamente
         if (fseek(file, inicioRegistro, SEEK_SET) != 0) {  // posiciona o ponteiro no início do registro a ser removido
             ok = false; break; 
         }
@@ -312,7 +305,8 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
         if (fwrite(&topo, sizeof(int), 1, file) != 1) {  // escreve o antigo topo da lista de removidos no campo de proxRRN do registro removido, para manter a lista encadeada
             ok = false; break; 
         }
-        topo = arrayRRNs[i]; // atualiza o topo para o RRN do registro recém-removido, que agora é o primeiro da lista de removidos
+        topo = rrn; // atualiza o topo para o RRN do registro recém-removido, que agora é o primeiro da lista de removidos
+        fseek(file, inicioRegistro + TAM_REG, SEEK_SET);
     }
 
     // se todas as marcações de removido foram feitas com sucesso, atualiza o topo da lista de removidos no cabeçalho para apontar para o primeiro registro removido
@@ -324,7 +318,6 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        free(arrayRRNs);
         return false;
     }
 
@@ -333,7 +326,6 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     atualizarStatus(file, '1', true); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
     fclose(file);
 
-    free(arrayRRNs);
     return true;
 }
 
@@ -438,30 +430,15 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
 }
 
 bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate) {  
-    int *arrayRRNs = NULL;
-
-    // uso de selectWhere para obter os RRNs que dão match
-    int tamRRNs = selectWhere(arquivoEntrada, paresBusca, mParesBusca, &arrayRRNs, false);
-    
-    if (tamRRNs < 0) return false;
-
-    // se nenhum registro atendeu aos critérios, encerra sem alterar o arquivo
-    if (tamRRNs == 0) {
-        free(arrayRRNs);
-        return false;
-    }
-
-    // processo de escrita, já que encontrou matches, abre em r+b
+    // processo de escrita, abre em r+b
     FILE *file = fopen(arquivoEntrada, "r+b");
     if (!file) {
         printf("Falha no processamento do arquivo.\n");
-        free(arrayRRNs);
         return false;
     }
 
     char status;
     int topo;
-
     // lê o status e o topo da lista de removidos do cabeçalho
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
@@ -474,19 +451,23 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
             fclose(f); 
         }
     
-        free(arrayRRNs);
         return false;
     }
 
     // altera o status para inconsistente durante as modificações
     atualizarStatus(file, '0', true);
-
     bool ok = true;
 
-    // iteração direta sobre os RRNs encontrados
-    for (int i = 0; i < tamRRNs; i++) {
+    int rrn = -1;
+    while(true){
+        //busca o próximo registro que satisfaz os critérios para atualização
+        //+1 para não ficar retornando sempre o mesmo rrn
+        //seek = true, porque o ponteiro já estará no início do próximo rrn ao final do loop
+        rrn = selectWhere(file, paresBusca, mParesBusca, rrn+1, true, false); 
+        if(rrn < 0) break;
+
         // cálculo do byte offset exato do registro
-        long inicioRegistro = (long)TAM_CABECALHO + (long)arrayRRNs[i] * (long)TAM_REG;
+        long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG;
         
         if (fseek(file, inicioRegistro, SEEK_SET) != 0) { 
             ok = false; 
@@ -582,14 +563,12 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         FILE *f = fopen(arquivoEntrada, "r+b");
         if (f) { atualizarStatus(f, '0', true); fclose(f); }
         fclose(file);
-        free(arrayRRNs);
         return false;
     }
 
     // fim do processo de UPDATE
     atualizarStatus(file, '1', true);
     fclose(file);
-    free(arrayRRNs);
 
     return true;
 }

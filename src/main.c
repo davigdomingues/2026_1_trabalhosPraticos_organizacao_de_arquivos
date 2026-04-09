@@ -96,7 +96,7 @@ int main(){
 
             selectAll(arquivoEntrada);
             break;
-        case 3: // SELECT WHERE
+        case 3: // SELECT ALL WHERE
             arquivoEntrada = (char*) malloc(sizeof(char) * 100);
             scanf("%s", arquivoEntrada);
             int nBuscas = 0;
@@ -109,8 +109,7 @@ int main(){
 
                 lerPares(pares, mPares);
 
-                int *rrns;
-                selectWhere(arquivoEntrada, pares, mPares, &rrns, true);
+                selectAllWhere(arquivoEntrada, pares, mPares);
 
                 liberarPares(pares, mPares);
             }

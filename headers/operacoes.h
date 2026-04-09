@@ -21,7 +21,7 @@ typedef struct CampoValor {
 bool create(char *arquivoEntrada, char *arquivoSaida);
 
 /**
- * @brief A partir de um arquivo binário, imprime na tela todos os registros não logicamente removidos.
+ * @brief Dado um arquivo binário, imprime na tela todos os registros não logicamente removidos.
  * 
  * @param arquivoEntrada caminho para o arquivo binário de entrada
  */
@@ -29,18 +29,31 @@ void selectAll(char *arquivoEntrada);
 
 
 /**
- * @brief A partir de um arquivo binário, imprime e/ou retorna RRNs de registros que correspondem aos critérios de busca especificados.
+ * @brief Dado um arquivo binário, imprime os registros que satisfazem os critérios de busca ou retorna o rrn do primeiro registro que os satisfizer.
+ * 
+ * @param file ponteiro para o arquivo aberto em modo "rb"
+ * @param pares array de campos e valores que especificam os critérios de busca
+ * @param mPares tamanho do array de pares
+ * @param rrnInicial rrn que indica de qual registro a busca deve iniciar
+ * @param apenasPrimeiroRes flag que indica se deve retornar apenas o primeiro resultado encontrado
+ * @param seek flag que indica se deve ser feito uma chamada à fseek ou se o ponteiro já está na posição correta
+ * @return int rrn do primeiro resultado encontrado ou, simplesmente, indicador de sucesso da operação (sinal do int)
+ */
+int selectWhere(FILE *file, CampoValor *par, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek);
+
+/**
+ * @brief Dado um arquivo binário, imprime na tela todos os registros não logicamente removidos que satisfazem os critérios de busca.
  * 
  * @param arquivoEntrada caminho para o arquivo binário de entrada
  * @param pares array de campos e valores que especificam os critérios de busca
  * @param mPares tamanho do array de pares
- * @param rrns array de saída que é populado com os RRNs dos registros que correspondem aos critérios de busca
- * @param print flag que indica se os registros devem ser impressos ou não
- * @return int tamanho do array de RRNs
+ * @return int sinal indica sucesso ou falha da operação
  */
-int selectWhere(char *arquivoEntrada, CampoValor *par, int mPares, int **rrns, bool print);
 
-/** @brief A partir de um arquivo binário, remove logicamente os registros que correspondem aos critérios de busca especificados.
+int selectAllWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
+
+
+/** @brief Dado um arquivo binário, remove logicamente os registros que correspondem aos critérios de busca especificados.
  * 
  * @param arquivoEntrada caminho para o arquivo binário de entrada
  * @param pares array de campos e valores que especificam os critérios de busca
@@ -48,9 +61,11 @@ int selectWhere(char *arquivoEntrada, CampoValor *par, int mPares, int **rrns, b
  * @return true registros removidos com sucesso
  * @return false falha no processamento
  */
+
 bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
 
-/** @brief A partir de um arquivo binário, insere um novo registro com os valores especificados.
+
+/** @brief Dado um arquivo binário, insere um novo registro com os valores especificados.
  * 
  * @param arquivoEntrada caminho para o arquivo binário de entrada
  * @param valores array de campos e valores que especificam os dados do novo registro
@@ -60,7 +75,8 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
  */
 bool insert(char *arquivoEntrada, CampoValor *valores, int mValores);
 
-/** @brief A partir de um arquivo binário, atualiza os registros que correspondem aos critérios de busca especificados.
+
+/** @brief Dado um arquivo binário, atualiza os registros que correspondem aos critérios de busca especificados.
  * 
  * @param arquivoEntrada caminho para o arquivo binário de entrada
  * @param arquivoSaida caminho para o arquivo binário de saída
