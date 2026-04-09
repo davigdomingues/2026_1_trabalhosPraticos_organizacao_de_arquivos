@@ -86,9 +86,14 @@ void recalcularContadores(FILE *file) {
         fseek(file, tamNomeLinha, SEEK_CUR); // pula o nomeLinha (não precisamos dele)
         
         if (codProxEstacao != -1) {
+            int menor = (codEstacao < codProxEstacao) ? codEstacao : codProxEstacao;
+            int maior = (codEstacao < codProxEstacao) ? codProxEstacao : codEstacao;
+
             char *par = (char*) malloc(20);
-            snprintf(par, 20, "%d-%d", codEstacao, codProxEstacao);
-            hashmap_set(mapParesEstacoes, par, strlen(par) + 1, codProxEstacao);
+            if (par) {
+                snprintf(par, 20, "%d-%d", menor, maior); // A-B == B-A
+                hashmap_set(mapParesEstacoes, par, strlen(par) + 1, codProxEstacao);
+            }
         }
 
         // pula o lixo ($) para ir para o próximo registro

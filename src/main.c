@@ -21,7 +21,9 @@ static void lerPares(CampoValor *pares, int mPares) {
     for (int j = 0; j < mPares; j++) {
         char *campo = (char*) malloc(sizeof(char) * TAM_CAMPO);
         char *valor = (char*) malloc(sizeof(char) * TAM_VALOR);
-        scanf("%s", campo);
+
+        // evita overflow
+        scanf("%19s", campo);
 
         int valorInt;
         if (scanf("%d", &valorInt) <= 0) {
@@ -97,8 +99,9 @@ int main(){
             selectAll(arquivoEntrada);
             break;
         case 3: // SELECT ALL WHERE
-            arquivoEntrada = (char*) malloc(sizeof(char) * 100);
-            scanf("%s", arquivoEntrada);
+            arquivoEntrada = lerNomeArquivo();
+            if (!arquivoEntrada) return -1;
+
             int nBuscas = 0;
             scanf("%d", &nBuscas);
 
@@ -187,9 +190,10 @@ int main(){
             // busca e atualização (pares campo-valor)
             CampoValor *paresBusca = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             CampoValor *paresUpdate = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
-            bool okUpdate = true; // 
-            bool encerrarCedoSemErro = false; //
-            // loop operações de atualização
+            
+            // loop das operações de atualização
+            bool okUpdate = true;
+
             for (int i = 0; i < nAtualizacoes; i++) {
                 int mParesBusca = 0;
                 scanf("%d", &mParesBusca);
@@ -201,24 +205,16 @@ int main(){
 
                 lerPares(paresUpdate, mParesUpdate);
 
-                if (okUpdate) { // se houver falha em alguma das atualizações, okUpdate = false e as próximas atualizações não são tentadas
-                    bool atualizou = update(arquivoEntrada, arquivoEntrada, paresBusca, mParesBusca, paresUpdate, mParesUpdate);
-                    if (!atualizou) {
-                        // distingue "não achou" vs falha real via status do cabeçalho
-                        char statusCabecalho;
-                        if (!lerStatusCabecalho(arquivoEntrada, &statusCabecalho) || statusCabecalho != '1') {
-                            okUpdate = false; // falha real
-                        } else {
-                            encerrarCedoSemErro = true; // critério não satisfeito: encerra cedo e ainda imprime hash
-                        }
-                    }
+                // se houver falha em alguma das atualizações, okUpdate = false e as próximas atualizações não são tentadas
+                if (okUpdate && !update(arquivoEntrada, arquivoEntrada, paresBusca, mParesBusca, paresUpdate, mParesUpdate)) {
+                    okUpdate = false; // falha real
                 }
 
                 // liberação dos pares da operação de atualização atual antes de ler os próximos
                 liberarPares(paresBusca, mParesBusca);
                 liberarPares(paresUpdate, mParesUpdate);
 
-                if (!okUpdate || encerrarCedoSemErro) break; // encerra antes de completar as N atualizações
+                if (!okUpdate) break; // encerra antes de completar as N atualizações
             }
 
             free(paresBusca);

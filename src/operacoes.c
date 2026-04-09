@@ -41,6 +41,14 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
         char *nomeEstacao = strsep(&linhaPtr, ",");
 
         Registro *reg = (Registro*) malloc(sizeof(Registro));
+        if(!reg){
+            free(linha);
+            fclose(csv);
+            fclose(file);
+            printf("Falha no processamento do arquivo.\n");
+            return false;
+        }
+
         //inicializa a struct com valores que não precisam de tratamento
         *reg = (Registro) {.removido = '0', .proximo = -1, .codEstacao = codEstacao, .tamNomeEstacao = strlen(nomeEstacao), .nomeEstacao = nomeEstacao};
 
@@ -113,6 +121,12 @@ void selectAll(char *arquivoEntrada){
     fseek(file, TAM_CABECALHO, SEEK_SET); 
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));
+    if(!reg){
+        fclose(file);
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
     int regLidos = 0;
     char removido;
     while(fread(&removido, sizeof(char), 1, file)){
@@ -163,10 +177,20 @@ void selectAll(char *arquivoEntrada){
 
 int selectAllWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     FILE *file = fopen(arquivoEntrada, "rb");
-    return selectWhere(file, pares, mPares, 0, false, true);
+    if (!file) {
+        printf("Falha no processamento do arquivo.\n");
+        return -1;
+    }
+
+    int res = selectWhere(file, pares, mPares, 0, false, true);
+
+    fclose(file);
+    return res;
 }
 
 int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek){
+    if(!file) return -1;
+
     //se seek == true, vai para o rrn de início da busca
     //se rrnInicial, precisa pular o cabeçalho
     //caso contrário, assume que o ponteiro do arquivo já está no lugar certo
@@ -182,6 +206,7 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
     int rrnAtual = rrnInicial;
     int numMatches = 0;
     Registro *reg = (Registro*) malloc(sizeof(Registro));
+    if(!reg) return -1;
 
     bool encontrou = false;
     char removido;
@@ -442,15 +467,11 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     // lê o status e o topo da lista de removidos do cabeçalho
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
         printf("Falha no processamento do arquivo.\n");
+
+        // evita abrir o mesmo arquivo de novo ao usar o FILE* já aberto
+        atualizarStatus(file, '0', true);
+
         fclose(file);
-    
-        // Tenta aplicar o status de inconsistência
-        FILE *f = fopen(arquivoEntrada, "r+b");
-        if (f) { 
-            atualizarStatus(f, '0', true); 
-            fclose(f); 
-        }
-    
         return false;
     }
 
@@ -560,8 +581,10 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     // se falhou no meio, trata o fechamento
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
-        FILE *f = fopen(arquivoEntrada, "r+b");
-        if (f) { atualizarStatus(f, '0', true); fclose(f); }
+
+        // o status já está '0' desde o começo, mas mantém explícito sem reabrir
+        atualizarStatus(file, '0', true);
+
         fclose(file);
         return false;
     }
