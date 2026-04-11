@@ -458,7 +458,7 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
         }
 
         // salva o proxRRN atualizado no cabeçalho (sempre salva, pois ele pode ter mudado no else acima)
-        fseek(file, 5, SEEK_SET); 
+        fseek(file, 5, SEEK_SET);
         fwrite(&proxRRN, sizeof(int), 1, file);
 
         // atualiza apenas os contadores do cabeçalho (sem recalcular varrendo o arquivo)
@@ -482,7 +482,7 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
     return true;
 }
 
-bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate) {  
+bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate) {
     // processo de escrita, abre em r+b
     FILE *file = fopen(arquivoEntrada, "r+b");
     if (!file) {
@@ -509,11 +509,11 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
 
     int rrn = -1;
     while(true){
-        //busca o próximo registro que satisfaz os critérios para atualização
-        //+1 para não ficar retornando sempre o mesmo rrn
-        //seek = false, porque o ponteiro já estará no início do próximo rrn ao final do loop
-        rrn = selectWhere(file, paresBusca, mParesBusca, rrn+1, true, false); 
-        if(rrn < 0) break;
+        // busca o próximo registro que satisfaz os critérios para atualização
+        // +1 para não ficar retornando sempre o mesmo rrn
+        // seek = false, porque o ponteiro já estará no início do próximo rrn ao final do loop
+        rrn = selectWhere(file, paresBusca, mParesBusca, rrn+1, true, false);
+        if (rrn < 0) break;
 
         // cálculo do byte offset exato do registro
         long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG;
@@ -523,13 +523,12 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
             break; 
         }
 
-        // lê a flag de removido apenas por segurança (o selectWhere já ignorou os removidos)
+        // lê a flag de removido para garantir que o registro não foi marcado como removido entre a busca e a atualização
         char removido;
         if (fread(&removido, sizeof(char), 1, file) != 1) { 
             ok = false; 
             break; 
         }
-        if (removido == '1') continue;
 
         Registro reg;
         reg.removido = '0';
