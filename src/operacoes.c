@@ -141,7 +141,6 @@ void selectAll(char *arquivoEntrada){
 
         fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
 
-
         //lê os campos do registro e armazena na struct
         fread(&reg->codEstacao, sizeof(int), 1, file);
         fread(&reg->codLinha, sizeof(int), 1, file);
@@ -512,7 +511,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
     while(true){
         //busca o próximo registro que satisfaz os critérios para atualização
         //+1 para não ficar retornando sempre o mesmo rrn
-        //seek = true, porque o ponteiro já estará no início do próximo rrn ao final do loop
+        //seek = false, porque o ponteiro já estará no início do próximo rrn ao final do loop
         rrn = selectWhere(file, paresBusca, mParesBusca, rrn+1, true, false); 
         if(rrn < 0) break;
 
