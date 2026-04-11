@@ -55,19 +55,66 @@ bool verificarMatchInt(int index, char *valorQuery, int valorReg);
  */
 bool verificarMatchStr(int index, char *valorQuery, char *valorReg);
 
+/**
+ * @brief considera como nulo um valor que seja NULL, ou uma string vazia, ou "void", ou "empty"
+ * 
+ * @param valor string a ser verificada
+ * @return true o valor é considerado nulo
+ * @return false o valor não é considerado nulo
+ */
 bool valorEhNulo(const char *valor);
+
+/**
+ * @brief verifica se um registro corresponde a um par campo-valor de busca, considerando os campos nomeEstacao e nomeLinha para comparação de strings
+ * 
+ * @param reg registro a ser verificado
+ * @param nomeEstacao nome da estação do registro, passado como parâmetro para comparação de strings
+ * @param nomeLinha nome da linha do registro, passado como parâmetro para comparação de strings
+ * @param par par campo-valor a ser comparado com o registro
+ * @return true o registro corresponde ao par campo-valor de busca
+ * @return false o registro não corresponde ao par campo-valor de busca
+ */
 bool registroMatchParBusca(const Registro *reg, const char *nomeEstacao, const char *nomeLinha, const CampoValor *par);
+
+/**
+ * @brief encontra o índice de um campo em um array de pares campo-valor, ou -1 se não encontrado
+ * 
+ * @param pares array de pares a ser buscado
+ * @param mPares tamanho do array de pares
+ * @param campo nome do campo a ser encontrado
+ * @return int índice do campo encontrado no array de pares, ou -1 se não encontrado
+ */
 int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo);
 
-// preenche um array (tamanho NUM_CAMPOS_REGISTRO) com ponteiros para os pares encontrados
-// posições sem filtro ficam como NULL e retorna quantos campos reconhecidos foram preenchidos
+/**
+ * @brief indexa um array de pares campo-valor por campo, preenchendo um array de ponteiros para os pares encontrados
+ * 
+ * @param pares array de pares a serem indexados
+ * @param mPares tamanho do array de pares
+ * @param out array de ponteiros para os pares encontrados, indexado por campo (posição fixa definida por CampoRegistroId), posições sem filtro ficam como NULL
+ * @return int número de campos reconhecidos encontrados e indexados no array de saída
+ */
 int popularParesPorCampo(CampoValor *pares, int mPares, CampoValor *out[NUM_CAMPOS_REGISTRO]);
 
-// aplica um par campo-valor em um Registro (converte int, trata NULO e aloca strings quando necessário)
-// retorna false apenas em falha de alocação
+/**
+ * @brief aplica um par campo-valor em um Registro (converte int, trata NULO e aloca strings quando necessário)
+ * 
+ * @param reg registro a ter o par aplicado
+ * @param par par a ser aplicado
+ * @return true par aplicado com sucesso ou campo do par desconhecido (neste caso, o par é simplesmente ignorado)
+ * @return false falha de alocação ao aplicar o par
+ */
 bool aplicarParEmRegistro(Registro *reg, CampoValor *par);
 
-// aplicação de vários pares em sequência e retorna false apenas em falha de alocação
+/**
+ * @brief aplica um array de pares campo-valor em um Registro (converte int, trata NULO e aloca strings quando necessário)
+ * 
+ * @param reg registro a ter os pares aplicados
+ * @param pares array de pares a serem aplicados
+ * @param mPares tamanho do array de pares
+ * @return true pares aplicados com sucesso
+ * @return false falha de alocação em algum dos pares
+ */
 bool aplicarParesEmRegistro(Registro *reg, CampoValor *pares, int mPares);
 
 #endif
