@@ -163,7 +163,7 @@ void selectAll(char *arquivoEntrada){
             char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha ) + 1); // +1 para o caractere nulo
             if (!nomeLinha) { 
                 if (reg->tamNomeEstacao > 0) 
-                free(reg->nomeEstacao); 
+                    free(reg->nomeEstacao); 
                 break; 
             }
 
@@ -203,7 +203,7 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
     if(!file) return -1;
 
     //se seek == true, vai para o rrn de início da busca
-    //se rrnInicial, precisa pular o cabeçalho
+    //se rrnInicial == 0, precisa pular o cabeçalho
     //caso contrário, assume que o ponteiro do arquivo já está no lugar certo
     if(seek || rrnInicial == 0){
         long byteOffsetInicial = (long)TAM_CABECALHO + (long)rrnInicial * (long)TAM_REG;
