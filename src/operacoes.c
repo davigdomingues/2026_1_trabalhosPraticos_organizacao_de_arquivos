@@ -587,7 +587,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         }
 
         if (ok) {
-            // verifica se o registro atualizado (que é de tamanho fixo) cabe [cite: 366] no seu respectivo lixo
+            // verifica se o registro atualizado (que é de tamanho fixo) cabe no seu respectivo lixo
             if (TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha) < 0) ok = false;
 
             // volta-se o ponteiro para o início do RRN exato e realiza a sobrescrição chamando a função escreverReg
