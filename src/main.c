@@ -1,6 +1,11 @@
+/*
+    Integrantes:
+    - Davi Gabriel Domingues (15447497)
+    - Felipe Ferreira Colona (15636525)
+*/
+
 #include "../headers/operacoes.h"
 #include "../headers/fornecidas.h"
-#include "../headers/cabecalho.h"
 #include "../headers/registro.h"
 #include <stdio.h>
 #include <stdlib.h>
