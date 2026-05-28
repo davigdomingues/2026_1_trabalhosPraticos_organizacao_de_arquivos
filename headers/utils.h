@@ -2,8 +2,13 @@
 #define UTILS_H
 
 #include "../c-hashmap/map.h"
-#include "../headers/registro.h"
-#include "../headers/operacoes.h"
+#include "../headers/dados/registro.h"
+
+typedef struct CampoValor {
+    char *campo;
+    char *valor;
+} CampoValor;
+
 
 // ordem fixa dos campos do registro para indexação via array
 #define NUM_CAMPOS_REGISTRO 8

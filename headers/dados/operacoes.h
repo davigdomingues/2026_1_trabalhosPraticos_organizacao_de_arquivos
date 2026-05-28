@@ -3,12 +3,8 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include "../utils.h"
 #include "registro.h"
-
-typedef struct CampoValor {
-    char *campo;
-    char *valor;
-} CampoValor;
 
 /**
  * @brief A partir de um arquivo CSV, cria um arquivo binário contendo registros de estações de metrô/trem.
@@ -39,7 +35,7 @@ void selectAll(char *arquivoEntrada);
  * @param seek flag que indica se deve ser feito uma chamada à fseek ou se o ponteiro já está na posição correta
  * @return int rrn do primeiro resultado encontrado ou, simplesmente, indicador de sucesso da operação (sinal do int)
  */
-int selectWhere(FILE *file, CampoValor *par, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek);
+int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *par, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek);
 
 /**
  * @brief Dado um arquivo binário, imprime na tela todos os registros não logicamente removidos que satisfazem os critérios de busca.
@@ -50,7 +46,7 @@ int selectWhere(FILE *file, CampoValor *par, int mPares, int rrnInicial, bool ap
  * @return int sinal indica sucesso ou falha da operação
  */
 
-int selectAllWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
+int selectAllWhere(char *arquivoDados, char *arquivoIndice, CampoValor *pares, int mPares);
 
 
 /** @brief Dado um arquivo binário, remove logicamente os registros que correspondem aos critérios de busca especificados.
@@ -88,5 +84,8 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores);
  * @return false falha no processamento
  */
 bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate);
+
+
+int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8]);
 
 #endif

@@ -1,9 +1,9 @@
-#include "../headers/operacoes.h"
-#include "../headers/registro.h"
-#include "../headers/cabecalho.h"
-#include "../headers/utils.h"
-#include "../headers/cabecalho.h"
-#include "../c-hashmap/map.h" //usando uma biblioteca, créditos para Mashpoe.
+#include "../../headers/dados/operacoes.h"
+#include "../../headers/dados/registro.h"
+#include "../../headers/dados/cabecalho.h"
+#include "../../headers/utils.h"
+#include "../../headers/indice/btree_operacoes.h"
+#include "../../c-hashmap/map.h" //usando uma biblioteca, créditos para Mashpoe.
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -186,106 +186,125 @@ void selectAll(char *arquivoEntrada){
     fclose(file);
 }
 
-int selectAllWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
-    FILE *file = fopen(arquivoEntrada, "rb");
-    if (!file) {
+int selectAllWhere(char *arquivoDados, char *arquivoIndice, CampoValor *pares, int mPares){
+    FILE *fileDados = fopen(arquivoDados, "rb");
+    if (!fileDados) {
         printf("Falha no processamento do arquivo.\n");
         return -1;
     }
 
-    int res = selectWhere(file, pares, mPares, 0, false, true);
+    FILE *fileIndice;
+    if(arquivoIndice != NULL){
+        fileIndice = fopen(arquivoIndice, "rb");
+    }
 
-    fclose(file);
+    int res = selectWhere(fileDados, fileIndice, pares, mPares, 0, false, true);
+
+    fclose(fileDados);
+    if(arquivoIndice != NULL) fclose(fileIndice);
     return res;
 }
 
-int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek){
-    if(!file) return -1;
+int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8]){
+    // garante estado limpo
+    reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
+    reg->tamNomeLinha   = 0; reg->nomeLinha   = "";
+
+    int numMatches = 0;
+
+    fseek(fileDados, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
+
+    fread(&reg->codEstacao, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_ESTACAO]->valor, reg->codEstacao)) numMatches++;
+
+    fread(&reg->codLinha, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_LINHA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA]->valor, reg->codLinha)) numMatches++;
+
+    fread(&reg->codProxEstacao, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_PROX_ESTACAO]->valor, reg->codProxEstacao)) numMatches++;
+
+    fread(&reg->distProxEstacao, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_DIST_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_DIST_PROX_ESTACAO]->valor, reg->distProxEstacao)) numMatches++;
+
+    fread(&reg->codLinhaIntegra, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_LINHA_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA_INTEGRA]->valor, reg->codLinhaIntegra)) numMatches++;
+
+    fread(&reg->codEstIntegra, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_EST_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_EST_INTEGRA]->valor, reg->codEstIntegra)) numMatches++;
+
+    fread(&reg->tamNomeEstacao, sizeof(int), 1, fileDados);
+    //lê o nomeEstacao, se não for um campo NULO
+    if(reg->tamNomeEstacao != 0){
+        char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
+        if (!nomeEstacao) { 
+            free(reg); 
+            return -1; 
+        }
+        fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, fileDados);
+        nomeEstacao[reg->tamNomeEstacao] = '\0';
+        reg->nomeEstacao = nomeEstacao;
+    } else {
+        //se for NULO, só indica que é
+        reg->nomeEstacao = "";
+    }
+    if (porCampo[CAMPO_NOME_ESTACAO] && verificarMatchStr(0, porCampo[CAMPO_NOME_ESTACAO]->valor, reg->nomeEstacao)) numMatches++;
+
+    fread(&reg->tamNomeLinha, sizeof(int), 1, fileDados);
+    //lê o nomeLinha, se não for um campo NULO
+    if(reg->tamNomeLinha != 0){
+        char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha) + 1); // +1 para o caractere nulo
+        if (!nomeLinha) {
+            if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+            free(reg);
+            return -1;
+        }
+        fread(nomeLinha, sizeof(char), reg->tamNomeLinha, fileDados);
+        nomeLinha[reg->tamNomeLinha] = '\0';
+        reg->nomeLinha = nomeLinha;
+    } else {
+        //se for NULO, só indica que é
+        reg->nomeLinha = "";
+    }
+    if (porCampo[CAMPO_NOME_LINHA] && verificarMatchStr(0, porCampo[CAMPO_NOME_LINHA]->valor, reg->nomeLinha)) numMatches++;
+
+    return numMatches;
+}
+
+int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek){
+    if(!fileDados) return -1;
 
     //se seek == true, vai para o rrn de início da busca
     //se rrnInicial == 0, precisa pular o cabeçalho
     //caso contrário, assume que o ponteiro do arquivo já está no lugar certo
     if(seek || rrnInicial == 0){
         long byteOffsetInicial = (long)TAM_CABECALHO + (long)rrnInicial * (long)TAM_REG;
-        fseek(file, byteOffsetInicial, SEEK_SET);
+        fseek(fileDados, byteOffsetInicial, SEEK_SET);
     }
 
     // indexa os pares por campo (posição fixa), posições sem filtro ficam como NULL
     CampoValor *porCampo[NUM_CAMPOS_REGISTRO];
     int numFiltros = popularParesPorCampo(pares, mPares, porCampo);
 
-    int rrnAtual = rrnInicial;
-    int numMatches = 0;
+    if(porCampo[CAMPO_COD_ESTACAO] && fileIndice != NULL){
+        return selectWhereIndexado(fileDados, porCampo, numFiltros);
+    }
+
     Registro *reg = (Registro*) malloc(sizeof(Registro));
     if(!reg) return -1;
 
+    int rrnAtual = rrnInicial;
+    int numMatches = 0;
+
     bool encontrou = false;
     char removido;
-    while(fread(&removido, sizeof(char), 1, file)){
+    while(fread(&removido, sizeof(char), 1, fileDados)){
         if(removido == '1') {
-            fseek(file, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
+            fseek(fileDados, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
             rrnAtual++;
             continue;
         }
 
-        // garante estado limpo
-        reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
-        reg->tamNomeLinha   = 0; reg->nomeLinha   = "";
-
-        fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
-
-        fread(&reg->codEstacao, sizeof(int), 1, file);
-        if (porCampo[CAMPO_COD_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_ESTACAO]->valor, reg->codEstacao)) numMatches++;
-
-        fread(&reg->codLinha, sizeof(int), 1, file);
-        if (porCampo[CAMPO_COD_LINHA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA]->valor, reg->codLinha)) numMatches++;
-
-        fread(&reg->codProxEstacao, sizeof(int), 1, file);
-        if (porCampo[CAMPO_COD_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_PROX_ESTACAO]->valor, reg->codProxEstacao)) numMatches++;
-
-        fread(&reg->distProxEstacao, sizeof(int), 1, file);
-        if (porCampo[CAMPO_DIST_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_DIST_PROX_ESTACAO]->valor, reg->distProxEstacao)) numMatches++;
-
-        fread(&reg->codLinhaIntegra, sizeof(int), 1, file);
-        if (porCampo[CAMPO_COD_LINHA_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA_INTEGRA]->valor, reg->codLinhaIntegra)) numMatches++;
-
-        fread(&reg->codEstIntegra, sizeof(int), 1, file);
-        if (porCampo[CAMPO_COD_EST_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_EST_INTEGRA]->valor, reg->codEstIntegra)) numMatches++;
-
-        fread(&reg->tamNomeEstacao, sizeof(int), 1, file);
-        //lê o nomeEstacao, se não for um campo NULO
-        if(reg->tamNomeEstacao != 0){
-            char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
-            if (!nomeEstacao) { 
-                free(reg); 
-                return -1; 
-            }
-            fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, file);
-            nomeEstacao[reg->tamNomeEstacao] = '\0';
-            reg->nomeEstacao = nomeEstacao;
-        } else {
-            //se for NULO, só indica que é
-            reg->nomeEstacao = "";
-        }
-        if (porCampo[CAMPO_NOME_ESTACAO] && verificarMatchStr(0, porCampo[CAMPO_NOME_ESTACAO]->valor, reg->nomeEstacao)) numMatches++;
-
-        fread(&reg->tamNomeLinha, sizeof(int), 1, file);
-        //lê o nomeLinha, se não for um campo NULO
-        if(reg->tamNomeLinha != 0){
-            char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha) + 1); // +1 para o caractere nulo
-            if (!nomeLinha) {
-                if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
-                free(reg);
-                return -1;
-            }
-            fread(nomeLinha, sizeof(char), reg->tamNomeLinha, file);
-            nomeLinha[reg->tamNomeLinha] = '\0';
-            reg->nomeLinha = nomeLinha;
-        } else {
-            //se for NULO, só indica que é
-            reg->nomeLinha = "";
-        }
-        if (porCampo[CAMPO_NOME_LINHA] && verificarMatchStr(0, porCampo[CAMPO_NOME_LINHA]->valor, reg->nomeLinha)) numMatches++;
+        numMatches = confereCriteriosBusca(fileDados, reg, porCampo);
 
         if(numMatches == numFiltros) {
             encontrou = true;
@@ -299,7 +318,7 @@ int selectWhere(FILE *file, CampoValor *pares, int mPares, int rrnInicial, bool 
             }
         }
         int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
-        if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
+        if(tamRestante != 0) fseek(fileDados, tamRestante, SEEK_CUR); //pula os $
 
         if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
         if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
@@ -342,7 +361,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     // loop para marcar os registros como removidos e atualizar a lista de removidos no cabeçalho
     while(true){
         //busca o próximo registro que satisfaz os critérios de remoção
-        rrn = selectWhere(file, pares, mPares, rrn+1, true, true); //+1 para não ficar retornando sempre o mesmo rrn
+        rrn = selectWhere(file, NULL, pares, mPares, rrn+1, true, true); //+1 para não ficar retornando sempre o mesmo rrn
         if(rrn < 0) break;
 
         long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG; // calcula o byte offset do registro a ser removido, usando o RRN para acessar diretamente
@@ -512,7 +531,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         // busca o próximo registro que satisfaz os critérios para atualização
         // +1 para não ficar retornando sempre o mesmo rrn
         // seek = false, porque o ponteiro já estará no início do próximo rrn ao final do loop
-        rrn = selectWhere(file, paresBusca, mParesBusca, rrn+1, true, false);
+        rrn = selectWhere(file, NULL, paresBusca, mParesBusca, rrn+1, true, false);
         if (rrn < 0) break;
 
         // cálculo do byte offset exato do registro

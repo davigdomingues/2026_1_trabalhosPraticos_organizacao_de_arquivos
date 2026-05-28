@@ -1,7 +1,7 @@
-#include "../headers/cabecalho.h"
-#include "../c-hashmap/map.h"
-#include "../headers/registro.h"
-#include "../headers/utils.h"
+#include "../../headers/dados/cabecalho.h"
+#include "../../c-hashmap/map.h"
+#include "../../headers/dados/registro.h"
+#include "../../headers/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

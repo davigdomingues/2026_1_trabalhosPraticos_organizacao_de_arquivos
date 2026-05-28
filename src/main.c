@@ -4,9 +4,9 @@
     - Felipe Ferreira Colona (15636525)
 */
 
-#include "../headers/operacoes.h"
+#include "../headers/dados/operacoes.h"
 #include "../headers/fornecidas.h"
-#include "../headers/registro.h"
+#include "../headers/dados/registro.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,27 +85,28 @@ int main(){
     int op;
     scanf("%d", &op);
 
-    char *arquivoEntrada = NULL;
+    char *arquivoDados = NULL;
     char *arquivoSaida = NULL;
+    char *arquivoIndice = NULL;
     bool ok = false;
     switch (op) {
         case 1: // CREATE
-            arquivoEntrada = lerNomeArquivo();
+            arquivoDados = lerNomeArquivo();
             arquivoSaida   = lerNomeArquivo();
-            if (!arquivoEntrada || !arquivoSaida) return -1;
+            if (!arquivoDados || !arquivoSaida) return -1;
 
-            ok = create(arquivoEntrada, arquivoSaida);
+            ok = create(arquivoDados, arquivoSaida);
             if(ok) BinarioNaTela(arquivoSaida);
             break;
         case 2: // SELECT ALL
-            arquivoEntrada = lerNomeArquivo();
-            if (!arquivoEntrada) return -1;
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
 
-            selectAll(arquivoEntrada);
+            selectAll(arquivoDados);
             break;
         case 3: // SELECT ALL WHERE
-            arquivoEntrada = lerNomeArquivo();
-            if (!arquivoEntrada) return -1;
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
 
             int nBuscas = 0;
             scanf("%d", &nBuscas);
@@ -117,15 +118,15 @@ int main(){
 
                 lerPares(pares, mPares);
 
-                selectAllWhere(arquivoEntrada, pares, mPares);
+                selectAllWhere(arquivoDados, NULL, pares, mPares);
 
                 liberarPares(pares, mPares);
             }
             free(pares);
             break;
         case 4: // DELETE WHERE
-            arquivoEntrada = lerNomeArquivo();
-            if (!arquivoEntrada) return -1;
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
 
             int nRemocoes = 0; // número de operações de remoção a serem realizadas
             scanf("%d", &nRemocoes);
@@ -139,7 +140,7 @@ int main(){
 
                 lerPares(paresDelete, mPares); // leitura dos pares para a operação de remoção atual
 
-                if (ok && !deleteWhere(arquivoEntrada, paresDelete, mPares)) {
+                if (ok && !deleteWhere(arquivoDados, paresDelete, mPares)) {
                     ok = false; // como falhou, não tenta as próximas
                 }
 
@@ -148,11 +149,11 @@ int main(){
 
             free(paresDelete);
 
-            if (ok) BinarioNaTela(arquivoEntrada);
+            if (ok) BinarioNaTela(arquivoDados);
             break;
         case 5: // INSERT
-            arquivoEntrada = lerNomeArquivo();
-            if (!arquivoEntrada) return -1;
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
 
             int nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
@@ -180,14 +181,14 @@ int main(){
                 }
 
                 // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
-                if (ok && !insert(arquivoEntrada, valores, MAX_PARES)) ok = false;
+                if (ok && !insert(arquivoDados, valores, MAX_PARES)) ok = false;
             }
 
-            if (ok) BinarioNaTela(arquivoEntrada);
+            if (ok) BinarioNaTela(arquivoDados);
             break;
         case 6: // UPDATE
-            arquivoEntrada = lerNomeArquivo();
-            if (!arquivoEntrada) return -1;
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
 
             int nAtualizacoes = 0; // número de operações de atualização a serem realizadas
             scanf("%d", &nAtualizacoes);
@@ -211,7 +212,7 @@ int main(){
                 lerPares(paresUpdate, mParesUpdate);
 
                 // se houver falha em alguma das atualizações, okUpdate = false e as próximas atualizações não são tentadas
-                if (okUpdate && !update(arquivoEntrada, arquivoEntrada, paresBusca, mParesBusca, paresUpdate, mParesUpdate)) {
+                if (okUpdate && !update(arquivoDados, arquivoDados, paresBusca, mParesBusca, paresUpdate, mParesUpdate)) {
                     okUpdate = false; // falha real
                 }
 
@@ -225,13 +226,36 @@ int main(){
             free(paresBusca);
             free(paresUpdate);
 
-            if (okUpdate) BinarioNaTela(arquivoEntrada);
+            if (okUpdate) BinarioNaTela(arquivoDados);
 
+            break;
+        case 8: //SELECT WHERE COM INDEXAÇÃO
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
+
+            arquivoIndice = lerNomeArquivo();
+            if (!arquivoIndice) return -1;
+
+            nBuscas = 0;
+            scanf("%d", &nBuscas);
+
+            pares = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+            for (int i = 0; i < nBuscas; i++) {
+                int mPares = 0;
+                scanf("%d", &mPares);
+
+                lerPares(pares, mPares);
+
+                selectAllWhere(arquivoDados, arquivoIndice, pares, mPares);
+
+                liberarPares(pares, mPares);
+            }
+            free(pares);
             break;
         default: // operação inválida
             return -1;
     }
-    free(arquivoEntrada);
+    free(arquivoDados);
     free(arquivoSaida);
 
     return 0;
