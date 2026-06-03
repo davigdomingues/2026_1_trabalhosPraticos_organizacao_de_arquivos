@@ -181,7 +181,7 @@ int main(){
                 }
 
                 // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
-                if (ok && !insert(arquivoDados, valores, MAX_PARES)) ok = false;
+                if (ok && !insert(arquivoDados, arquivoIndice, valores, MAX_PARES)) ok = false;
             }
 
             if (ok) BinarioNaTela(arquivoDados);
@@ -252,10 +252,49 @@ int main(){
             }
             free(pares);
             break;
+        case 10:
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
+
+            arquivoIndice = lerNomeArquivo();
+            if (!arquivoIndice) return -1;
+
+            nInsercoes = 0; // número de operações de inserção a serem realizadas
+            scanf("%d", &nInsercoes);
+
+            ok = true; // se houver falha em alguma das inserções, ok = false e as próximas inserções não são tentadas
+
+            // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
+            for (int i = 0; i < nInsercoes; i++) {
+                CampoValor valores[MAX_PARES];
+                char valoresStr[MAX_PARES][LIMITE];
+                valores[0].campo = "codEstacao";
+                valores[1].campo = "nomeEstacao";
+                valores[2].campo = "codLinha";
+                valores[3].campo = "nomeLinha";
+                valores[4].campo = "codProxEstacao";
+                valores[5].campo = "distProxEstacao";
+                valores[6].campo = "codLinhaIntegra";
+                valores[7].campo = "codEstacaoIntegra";
+
+                // lê os valores como string, mesmo os inteiros, para padronizar
+                // se o valor for nulo, salva como string vazia
+                for (int k = 0; k < MAX_PARES; k++) {
+                    valores[k].valor = valoresStr[k];
+                    ScanQuoteString(valores[k].valor);
+                }
+
+                // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
+                if (ok && !insert(arquivoDados, arquivoIndice, valores, MAX_PARES)) ok = false;
+            }
+
+            if (ok) BinarioNaTela(arquivoDados);
+            break;
         default: // operação inválida
             return -1;
     }
     free(arquivoDados);
+    free(arquivoIndice);
     free(arquivoSaida);
 
     return 0;

@@ -193,7 +193,7 @@ int selectAllWhere(char *arquivoDados, char *arquivoIndice, CampoValor *pares, i
         return -1;
     }
 
-    FILE *fileIndice;
+    FILE *fileIndice = NULL;
     if(arquivoIndice != NULL){
         fileIndice = fopen(arquivoIndice, "rb");
     }
@@ -286,7 +286,7 @@ int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares
     int numFiltros = popularParesPorCampo(pares, mPares, porCampo);
 
     if(porCampo[CAMPO_COD_ESTACAO] && fileIndice != NULL){
-        return selectWhereIndexado(fileDados, porCampo, numFiltros);
+        return selectWhereIndexado(fileDados, fileIndice, porCampo, numFiltros);
     }
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));
@@ -401,10 +401,10 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     return true;
 }
 
-bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
+bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mValores) {
     // tenta abrir para leitura+escrita, para depois atualizar o arquivo com o novo registro inserido
-    FILE *file = fopen(arquivoEntrada, "r+b");
-    if (!file) {
+    FILE *fileDados = fopen(arquivoDados, "r+b");
+    if (!fileDados) {
         printf("Falha no processamento do arquivo.\n");
         return false;
     }
@@ -416,20 +416,22 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
     int nroPares;
 
     // lê o status, o topo da lista de removidos e os contadores do cabeçalho
-    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' ||
-        fread(&topo, sizeof(int), 1, file) != 1 ||
-        fread(&proxRRN, sizeof(int), 1, file) != 1 ||
-        fread(&nroEstacoes, sizeof(int), 1, file) != 1 ||
-        fread(&nroPares, sizeof(int), 1, file) != 1) {
+    if (fread(&status, sizeof(char), 1, fileDados) != 1 || status != '1' ||
+        fread(&topo, sizeof(int), 1, fileDados) != 1 ||
+        fread(&proxRRN, sizeof(int), 1, fileDados) != 1 ||
+        fread(&nroEstacoes, sizeof(int), 1, fileDados) != 1 ||
+        fread(&nroPares, sizeof(int), 1, fileDados) != 1) {
         printf("Falha no processamento do arquivo.\n");
-        fclose(file);
+        fclose(fileDados);
         return false;
     }
 
     // atualiza o status para '0' para indicar que o arquivo está sendo modificado e volta o ponteiro para o início do arquivo para depois atualizar os contadores no cabeçalho
-    atualizarStatus(file, '0', true);
+    atualizarStatus(fileDados, '0', true);
 
     Registro reg = inicializarReg();
+    int rrnNovoReg = -1;
+    int ponteiroDados;
     bool ok = true;
 
     // aplica os pares usando utilitário compartilhado (conversão + NULO + strings)
@@ -439,7 +441,7 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
         if (TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha) < 0) ok = false;
 
         // atualiza nroEstacoes somente se for um novo nome de estação (contagem por nome)
-        if (reg.tamNomeEstacao > 0 && !nomeEstacaoJaExiste(file, reg.nomeEstacao, reg.tamNomeEstacao)) {
+        if (reg.tamNomeEstacao > 0 && !nomeEstacaoJaExiste(fileDados, reg.nomeEstacao, reg.tamNomeEstacao)) {
             nroEstacoes++;
         }
 
@@ -451,40 +453,43 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
         if (topo != -1) {
             // Reaproveita um registro removido.
             long off = (long)TAM_CABECALHO + (long)topo * (long)TAM_REG;
+            ponteiroDados = off;
+            rrnNovoReg = off;
             int proximoTopo = -1;
 
             // lê o próximo da lista de removidos para atualizar o topo depois
-            if (fseek(file, off + 1, SEEK_SET) != 0 || fread(&proximoTopo, sizeof(int), 1, file) != 1) {
+            if (fseek(fileDados, off + 1, SEEK_SET) != 0 || fread(&proximoTopo, sizeof(int), 1, fileDados) != 1) {
                 ok = false;
-            } else if (fseek(file, off, SEEK_SET) != 0) { // posiciona para escrever o registro no lugar do removido
+            } else if (fseek(fileDados, off, SEEK_SET) != 0) { // posiciona para escrever o registro no lugar do removido
                 ok = false;
             } else { // escreve o registro no lugar do removido
-                escreverReg(file, &reg);
+                escreverReg(fileDados, &reg);
                 // atualiza topo para o próximo da lista de removidos
-                if (fseek(file, 1, SEEK_SET) != 0 || fwrite(&proximoTopo, sizeof(int), 1, file) != 1) ok = false;
+                if (fseek(fileDados, 1, SEEK_SET) != 0 || fwrite(&proximoTopo, sizeof(int), 1, fileDados) != 1) ok = false;
             }
 
         } else {
             // Sem removidos: escreve no fim (append)
-            if (fseek(file, 0, SEEK_END) != 0) ok = false;
+            if (fseek(fileDados, 0, SEEK_END) != 0) ok = false;
 
             // escreve o novo registro no fim do arquivo e incrementa proxRRN para apontar para o próximo registro a ser inserido
             if (ok) {
-                escreverReg(file, &reg);
+                rrnNovoReg = proxRRN;
+                ponteiroDados = (long)TAM_CABECALHO + (long)rrnNovoReg * (long)TAM_REG;
+                escreverReg(fileDados, &reg);
                 // somente incrementa o proxRRN quando escreve no fim do arquivo
                 proxRRN++;
             }
         }
 
         // salva o proxRRN atualizado no cabeçalho (sempre salva, pois ele pode ter mudado no else acima)
-        fseek(file, 5, SEEK_SET);
-        fwrite(&proxRRN, sizeof(int), 1, file);
+        fseek(fileDados, 5, SEEK_SET);
+        fwrite(&proxRRN, sizeof(int), 1, fileDados);
 
         // atualiza apenas os contadores do cabeçalho (sem recalcular varrendo o arquivo)
-        atualizarNroEstacoes(file, nroEstacoes, true);
-        atualizarNroParesEstacoes(file, nroPares, false); //false porque são campos contíguos
-        
-        atualizarStatus(file, '1', true);
+        atualizarNroEstacoes(fileDados, nroEstacoes, true);
+        atualizarNroParesEstacoes(fileDados, nroPares, false); //false porque são campos contíguos
+        atualizarStatus(fileDados, '1', true);
     }
 
     if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
@@ -493,11 +498,20 @@ bool insert(char *arquivoEntrada, CampoValor *valores, int mValores) {
     // caso haja algum erro durante a escrita do registro ou a atualização dos contadores
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
-        fclose(file);
+        fclose(fileDados);
         return false;
     }
+    fclose(fileDados);
 
-    fclose(file);
+    FILE *fileIndice = NULL;
+    if(arquivoIndice != NULL){
+        fileIndice = fopen(arquivoIndice, "rb+");
+    }
+    
+    char inconsistente = '1';
+    fwrite(&inconsistente, sizeof(char), 1, fileIndice);
+    insertIndice(fileIndice, reg.codEstacao, ponteiroDados);
+
     return true;
 }
 
