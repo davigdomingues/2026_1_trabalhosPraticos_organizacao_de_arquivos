@@ -5,6 +5,22 @@
 #include <limits.h>
 #include <string.h>
 
+/* (sabor implementação?)
+static void limparNo(No *no) {
+    no->removido = '0';
+    no->proximo = -1;
+    no->tipoNo = NO_NAO_INICIALIZADO;
+    no->nroChaves = 0;
+
+    for (int i = 0; i < NRO_MAX_CHAVES; i++) {
+        no->C[i] = -1;
+        no->Pr[i] = -1;
+        no->P[i] = -1;
+    }
+    no->P[NRO_MAX_CHAVES] = -1;
+}
+*/
+
 No *incializarNo(){
     No *no = (No*) malloc(sizeof(No));
     int *C = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
@@ -105,8 +121,8 @@ bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados){
     else {
         if(chave == C3){
             *ponteiroDados = no->Pr[2];
-            return true;
-        }
+        return true;
+    }
         else if(chave < C3){
             *subArvore = no->P[2];
         }
@@ -143,9 +159,10 @@ bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir){
 int comparaInt(const void *a, const void *b) {
     int n1 = *(const int *)a;
     int n2 = *(const int *)b;
-    return (n1 > n2) - (n1 < n2); 
+    return (n1 > n2) - (n1 < n2);
 }
 
+/* (ideia de implementação) */
 int distribuirOrdenado(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int filhoDirChaveNova){
     return 0;
 }

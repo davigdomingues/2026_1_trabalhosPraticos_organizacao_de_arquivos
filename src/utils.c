@@ -35,6 +35,71 @@ bool verificarMatchStr(int index, char *valorQuery, char *valorReg) {
     return false;
 }
 
+int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8]){
+    if (!fileDados || !reg) return -1;
+
+    // garante estado limpo
+    reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
+    reg->tamNomeLinha   = 0; reg->nomeLinha   = "";
+
+    int numMatches = 0;
+
+    fseek(fileDados, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
+
+    fread(&reg->codEstacao, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_ESTACAO]->valor, reg->codEstacao)) numMatches++;
+
+    fread(&reg->codLinha, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_LINHA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA]->valor, reg->codLinha)) numMatches++;
+
+    fread(&reg->codProxEstacao, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_PROX_ESTACAO]->valor, reg->codProxEstacao)) numMatches++;
+
+    fread(&reg->distProxEstacao, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_DIST_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_DIST_PROX_ESTACAO]->valor, reg->distProxEstacao)) numMatches++;
+
+    fread(&reg->codLinhaIntegra, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_LINHA_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA_INTEGRA]->valor, reg->codLinhaIntegra)) numMatches++;
+
+    fread(&reg->codEstIntegra, sizeof(int), 1, fileDados);
+    if (porCampo[CAMPO_COD_EST_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_EST_INTEGRA]->valor, reg->codEstIntegra)) numMatches++;
+
+    fread(&reg->tamNomeEstacao, sizeof(int), 1, fileDados);
+    //lê o nomeEstacao, se não for um campo NULO
+    if(reg->tamNomeEstacao != 0){
+        char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
+        if (!nomeEstacao) { 
+            return -1; 
+        }
+        fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, fileDados);
+        nomeEstacao[reg->tamNomeEstacao] = '\0';
+        reg->nomeEstacao = nomeEstacao;
+    } else {
+        //se for NULO, só indica que é
+        reg->nomeEstacao = "";
+    }
+    if (porCampo[CAMPO_NOME_ESTACAO] && verificarMatchStr(0, porCampo[CAMPO_NOME_ESTACAO]->valor, reg->nomeEstacao)) numMatches++;
+
+    fread(&reg->tamNomeLinha, sizeof(int), 1, fileDados);
+    //lê o nomeLinha, se não for um campo NULO
+    if(reg->tamNomeLinha != 0){
+        char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha) + 1); // +1 para o caractere nulo
+        if (!nomeLinha) {
+            if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+            return -1;
+        }
+        fread(nomeLinha, sizeof(char), reg->tamNomeLinha, fileDados);
+        nomeLinha[reg->tamNomeLinha] = '\0';
+        reg->nomeLinha = nomeLinha;
+    } else {
+        //se for NULO, só indica que é
+        reg->nomeLinha = "";
+    }
+    if (porCampo[CAMPO_NOME_LINHA] && verificarMatchStr(0, porCampo[CAMPO_NOME_LINHA]->valor, reg->nomeLinha)) numMatches++;
+
+    return numMatches;
+}
+
 // considera como nulo um valor que seja NULL, ou uma string vazia, ou "void", ou "empty"
 bool valorEhNulo(const char *valor) {
     if (valor == NULL) return true;

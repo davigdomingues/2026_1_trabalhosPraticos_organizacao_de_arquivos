@@ -205,71 +205,6 @@ int selectAllWhere(char *arquivoDados, char *arquivoIndice, CampoValor *pares, i
     return res;
 }
 
-int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8]){
-    // garante estado limpo
-    reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
-    reg->tamNomeLinha   = 0; reg->nomeLinha   = "";
-
-    int numMatches = 0;
-
-    fseek(fileDados, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
-
-    fread(&reg->codEstacao, sizeof(int), 1, fileDados);
-    if (porCampo[CAMPO_COD_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_ESTACAO]->valor, reg->codEstacao)) numMatches++;
-
-    fread(&reg->codLinha, sizeof(int), 1, fileDados);
-    if (porCampo[CAMPO_COD_LINHA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA]->valor, reg->codLinha)) numMatches++;
-
-    fread(&reg->codProxEstacao, sizeof(int), 1, fileDados);
-    if (porCampo[CAMPO_COD_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_PROX_ESTACAO]->valor, reg->codProxEstacao)) numMatches++;
-
-    fread(&reg->distProxEstacao, sizeof(int), 1, fileDados);
-    if (porCampo[CAMPO_DIST_PROX_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_DIST_PROX_ESTACAO]->valor, reg->distProxEstacao)) numMatches++;
-
-    fread(&reg->codLinhaIntegra, sizeof(int), 1, fileDados);
-    if (porCampo[CAMPO_COD_LINHA_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA_INTEGRA]->valor, reg->codLinhaIntegra)) numMatches++;
-
-    fread(&reg->codEstIntegra, sizeof(int), 1, fileDados);
-    if (porCampo[CAMPO_COD_EST_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_EST_INTEGRA]->valor, reg->codEstIntegra)) numMatches++;
-
-    fread(&reg->tamNomeEstacao, sizeof(int), 1, fileDados);
-    //lê o nomeEstacao, se não for um campo NULO
-    if(reg->tamNomeEstacao != 0){
-        char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
-        if (!nomeEstacao) { 
-            free(reg); 
-            return -1; 
-        }
-        fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, fileDados);
-        nomeEstacao[reg->tamNomeEstacao] = '\0';
-        reg->nomeEstacao = nomeEstacao;
-    } else {
-        //se for NULO, só indica que é
-        reg->nomeEstacao = "";
-    }
-    if (porCampo[CAMPO_NOME_ESTACAO] && verificarMatchStr(0, porCampo[CAMPO_NOME_ESTACAO]->valor, reg->nomeEstacao)) numMatches++;
-
-    fread(&reg->tamNomeLinha, sizeof(int), 1, fileDados);
-    //lê o nomeLinha, se não for um campo NULO
-    if(reg->tamNomeLinha != 0){
-        char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha) + 1); // +1 para o caractere nulo
-        if (!nomeLinha) {
-            if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
-            free(reg);
-            return -1;
-        }
-        fread(nomeLinha, sizeof(char), reg->tamNomeLinha, fileDados);
-        nomeLinha[reg->tamNomeLinha] = '\0';
-        reg->nomeLinha = nomeLinha;
-    } else {
-        //se for NULO, só indica que é
-        reg->nomeLinha = "";
-    }
-    if (porCampo[CAMPO_NOME_LINHA] && verificarMatchStr(0, porCampo[CAMPO_NOME_LINHA]->valor, reg->nomeLinha)) numMatches++;
-
-    return numMatches;
-}
-
 int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek){
     if(!fileDados) return -1;
 
@@ -503,16 +438,33 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
     }
     fclose(fileDados);
 
-    FILE *fileIndice = NULL;
-    if(arquivoIndice != NULL){
-        fileIndice = fopen(arquivoIndice, "rb+");
-    }
-    
-    char inconsistente = '1';
-    fwrite(&inconsistente, sizeof(char), 1, fileIndice);
-    insertIndice(fileIndice, reg.codEstacao, ponteiroDados);
+    // lógica específica para o arquivo de índice: se ele existir, insere o par chave-ponteiro no índice
+    // e trata a questão da consistência do arquivo de índice durante a escrita
+    if (arquivoIndice != NULL) {
+        FILE *fileIndice = fopen(arquivoIndice, "rb+");
+        if (!fileIndice) {
+            ok = false;
+        } else {
+            char inconsistente = '0';
+            if (fseek(fileIndice, 0, SEEK_SET) != 0 || fwrite(&inconsistente, sizeof(char), 1, fileIndice) != 1) {
+                ok = false;
+            } else if (insertIndice(fileIndice, reg.codEstacao, ponteiroDados) == ERRO_DE_INSERCAO) {
+                ok = false;
+            } else if (fseek(fileIndice, 0, SEEK_SET) != 0) {
+                ok = false;
+            } else {
+                inconsistente = '1';
+                if (fwrite(&inconsistente, sizeof(char), 1, fileIndice) != 1) ok = false;
+            }
+            fclose(fileIndice);
+        }
 
-    return true;
+        if (!ok) printf("Falha no processamento do arquivo.\n");
+    }
+
+    if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
+    if (reg.tamNomeLinha > 0) free(reg.nomeLinha);
+    return ok;
 }
 
 bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate) {

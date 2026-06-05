@@ -5,6 +5,7 @@
 */
 
 #include "../headers/dados/operacoes.h"
+#include "../headers/indice/btree_operacoes.h"
 #include "../headers/fornecidas.h"
 #include "../headers/dados/registro.h"
 #include <stdio.h>
@@ -229,6 +230,16 @@ int main(){
             if (okUpdate) BinarioNaTela(arquivoDados);
 
             break;
+        case 7: // CREATE INDEX ÁRVORE-B
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
+
+            arquivoIndice = lerNomeArquivo();
+            if (!arquivoIndice) return -1;
+
+            ok = criarIndiceArvoreB(arquivoDados, arquivoIndice);
+            if (ok) BinarioNaTela(arquivoIndice);
+            break;
         case 8: //SELECT WHERE COM INDEXAÇÃO
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados) return -1;
@@ -252,7 +263,7 @@ int main(){
             }
             free(pares);
             break;
-        case 10:
+        case 9: // INSERT COM INDEXAÇÃO
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados) return -1;
 
@@ -288,7 +299,10 @@ int main(){
                 if (ok && !insert(arquivoDados, arquivoIndice, valores, MAX_PARES)) ok = false;
             }
 
-            if (ok) BinarioNaTela(arquivoDados);
+            if (ok) {
+                BinarioNaTela(arquivoDados);
+                BinarioNaTela(arquivoIndice);
+            }
             break;
         default: // operação inválida
             return -1;

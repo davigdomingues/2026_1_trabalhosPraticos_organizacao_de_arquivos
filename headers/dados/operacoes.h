@@ -85,7 +85,4 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
  */
 bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate);
 
-
-int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8]);
-
 #endif

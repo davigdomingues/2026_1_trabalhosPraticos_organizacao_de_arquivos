@@ -61,6 +61,16 @@ bool verificarMatchInt(int index, char *valorQuery, int valorReg);
 bool verificarMatchStr(int index, char *valorQuery, char *valorReg);
 
 /**
+ * @brief confere os critérios de busca de um registro a partir de um vetor de pares campo-valor.
+ * 
+ * @param fileDados arquivo binário de dados já posicionado no início do registro
+ * @param reg registro a ser preenchido com os campos lidos
+ * @param porCampo array de ponteiros para pares campo-valor, indexado por CampoRegistroId
+ * @return int quantidade de critérios atendidos, ou -1 em falha de processamento
+ */
+int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8]);
+
+/**
  * @brief considera como nulo um valor que seja NULL, ou uma string vazia, ou "void", ou "empty"
  * 
  * @param valor string a ser verificada

@@ -1,10 +1,35 @@
 #include "../../headers/indice/btree_operacoes.h"
 #include "../../headers/indice/btree_cabecalho.h"
 #include "../../headers/indice/btree_no.h"
+#include "../../headers/dados/cabecalho.h"
 #include "../../headers/dados/operacoes.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+// fica
+static bool escreverCabecalhoIndice(FILE *fileIndice, char status, int noRaiz, int topo, int proxRRN, int nroNos) {
+    if (!fileIndice) return false;
+
+    if (fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET) != 0) return false;
+    if (fwrite(&status, sizeof(char), 1, fileIndice) != 1) return false;
+    if (fwrite(&noRaiz, sizeof(int), 1, fileIndice) != 1) return false;
+    if (fwrite(&topo, sizeof(int), 1, fileIndice) != 1) return false;
+    if (fwrite(&proxRRN, sizeof(int), 1, fileIndice) != 1) return false;
+    if (fwrite(&nroNos, sizeof(int), 1, fileIndice) != 1) return false;
+
+    return true;
+}
+
+// fica
+static bool atualizarStatusIndice(FILE *fileIndice, char status) {
+    if (!fileIndice) return false;
+
+    if (fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET) != 0) return false;
+    if (fwrite(&status, sizeof(char), 1, fileIndice) != 1) return false;
+
+    return true;
+}
 
 int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros){
     int chave = atoi(pares[CAMPO_COD_ESTACAO]->valor);
@@ -74,7 +99,7 @@ No *split(FILE *fileIndice, No *no, int chaveNova, int ponteiroDadosChaveNova, i
 void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, int chavePromocao, int filhoDirPromocao){
     int rrnNovaRaiz;
     No *novaRaiz = criarNo(fileIndice, &rrnNovaRaiz);
-        
+
     novaRaiz->nroChaves = 1;
     novaRaiz->C[0] = chavePromocao;
     novaRaiz->P[0] = rrnRaizAtual;          //filho a esquerda é a raiz antiga
@@ -160,5 +185,126 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtu
         return PROMOCAO;
     }
 
-    return false;
+    return 0;
+}
+
+bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
+    FILE *fileDados = NULL;
+    FILE *fileIndice = NULL;
+    char statusDados;
+    bool ok = true;
+    long offsetRegistro;
+
+    if(!arquivoDados || !arquivoIndice) {
+        printf("Falha no processamento do arquivo.\n");
+        return false;
+    }
+
+    fileDados = fopen(arquivoDados, "rb");
+    fileIndice = fopen(arquivoIndice, "wb+");
+
+    if(!fileDados || !fileIndice) {
+        printf("Falha no processamento do arquivo.\n");
+        if(fileDados) fclose(fileDados);
+        if(fileIndice) fclose(fileIndice);
+        return false;
+    }
+
+    if(fread(&statusDados, sizeof(char), 1, fileDados) != 1 || statusDados != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados);
+        fclose(fileIndice);
+        return false;
+    }
+
+    if(!escreverCabecalhoIndice(fileIndice, '0', -1, -1, 0, 0)) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados);
+        fclose(fileIndice);
+        return false;
+    }
+
+    if(fseek(fileDados, TAM_CABECALHO, SEEK_SET) != 0) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados);
+        fclose(fileIndice);
+        return false;
+    }
+
+    offsetRegistro = TAM_CABECALHO;
+
+    while (1) {
+        char removido;
+        int lixo, chave, tamNomeEstacao, tamNomeLinha;
+        int i;
+
+        if (fread(&removido, sizeof(char), 1, fileDados) != 1) break;
+
+        if (removido == '1') {
+            if (fseek(fileDados, TAM_REG - 1, SEEK_CUR) != 0) {
+                ok = false;
+                break;
+            }
+            offsetRegistro += TAM_REG;
+            continue;
+        }
+
+        if (fread(&lixo, sizeof(int), 1, fileDados) != 1 || fread(&chave, sizeof(int), 1, fileDados) != 1) {
+            ok = false;
+            break;
+        }
+
+        for (i = 0; i < 5; i++) {
+            if (fread(&lixo, sizeof(int), 1, fileDados) != 1) {
+                ok = false;
+                break;
+            }
+        }
+        if (!ok) break;
+
+        if (fread(&tamNomeEstacao, sizeof(int), 1, fileDados) != 1) {
+            ok = false;
+            break;
+        }
+        if (tamNomeEstacao > 0 && fseek(fileDados, tamNomeEstacao, SEEK_CUR) != 0) {
+            ok = false;
+            break;
+        }
+
+        if (fread(&tamNomeLinha, sizeof(int), 1, fileDados) != 1) {
+            ok = false;
+            break;
+        }
+        if (tamNomeLinha > 0 && fseek(fileDados, tamNomeLinha, SEEK_CUR) != 0) {
+            ok = false;
+            break;
+        }
+
+        i = TAM_LIVRE_REG(tamNomeEstacao, tamNomeLinha);
+        if (i > 0 && fseek(fileDados, i, SEEK_CUR) != 0) {
+            ok = false;
+            break;
+        }
+
+        if (insertIndice(fileIndice, chave, (int)offsetRegistro) == ERRO_DE_INSERCAO) {
+            ok = false;
+            break;
+        }
+
+        offsetRegistro += TAM_REG;
+    }
+
+    if (ok) {
+        ok = atualizarStatusIndice(fileIndice, '1');
+    }
+
+    fclose(fileDados);
+    fclose(fileIndice);
+
+    if (!ok) {
+        printf("Falha no processamento do arquivo.\n");
+        return false;
+    }
+
+    return true;
 }
