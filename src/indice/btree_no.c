@@ -26,7 +26,7 @@ No *incializarNo(){
     int *C = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
     int *Pr = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
     int *P = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
-
+    
     no->proximo = -1;
     no->tipoNo = NO_NAO_INICIALIZADO;
     no->nroChaves = 0;
@@ -142,6 +142,7 @@ bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir){
     while (i >= 0 && no->C[i] > chave) {
         no->C[i+1] = no->C[i];
         no->P[i+1] = no->P[i];
+        // no->P[i+2] = no->P[i+1]; (será que não é assim?)
         no->Pr[i+1] = no->Pr[i];
         i--;
     }
@@ -151,6 +152,7 @@ bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir){
     no->C[posicaoInsercao] = chave;
     no->Pr[posicaoInsercao] = ponteiroDados;
     no->P[posicaoInsercao] = filhoDir;
+    // no->P[posicaoInsercao+1] = filhoDir; (será que não é assim?)
 
     no->nroChaves++;
     return true;
@@ -165,4 +167,28 @@ int comparaInt(const void *a, const void *b) {
 /* (ideia de implementação) */
 int distribuirOrdenado(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int filhoDirChaveNova){
     return 0;
+}
+
+void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {
+    int topoAtual;
+    fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
+    fread(&topoAtual, sizeof(int), 1, fileIndice);
+
+    // Altera apenas o removido e o encadeamento (mantém os bytes antigos intactos)
+    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnNoParaApagar * TAM_NO, SEEK_SET);
+    char removido = '1';
+    fwrite(&removido, sizeof(char), 1, fileIndice);
+    fwrite(&topoAtual, sizeof(int), 1, fileIndice);
+
+    // Atualiza o topo
+    fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
+    fwrite(&rrnNoParaApagar, sizeof(int), 1, fileIndice);
+
+    // Decrementa estritamente o nroNos, como pede a especificação do trabalho 2
+    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+    int nroNos;
+    fread(&nroNos, sizeof(int), 1, fileIndice);
+    nroNos--;
+    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+    fwrite(&nroNos, sizeof(int), 1, fileIndice);
 }
