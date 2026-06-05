@@ -10,6 +10,10 @@
 #define PROMOCAO 1
 #define SEM_PROMOCAO 0
 #define ERRO_DE_INSERCAO -1
+#define MIN_CHAVES 1
+#define SUCESSO 1
+#define CHAVE_NAO_ENCONTRADA 0
+#define UNDERFLOW_PENDENTE 2
 
 int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros);
 bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados);
@@ -25,5 +29,16 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtu
  * @return false falha no processamento
  */
 bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice);
+
+bool removerChaveIndice(FILE *fileIndice, int chave);
+int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave);
+void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho);
+void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrnDir, int rrnPai, int indiceChavePai);
+
+/**
+ * @brief Remove registros do arquivo de dados e suas chaves da Árvore-B
+ * dependendo se a chave primária foi fornecida na query (O(log n)) ou não (O(n)).
+ */
+bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *pares, int mPares);
 
 #endif
