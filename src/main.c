@@ -304,6 +304,38 @@ int main(){
                 BinarioNaTela(arquivoIndice);
             }
             break;
+        case 10: // DELETE WHERE COM INDEXAÇÃO
+            arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return -1;
+            
+            arquivoIndice = lerNomeArquivo();
+            if (!arquivoIndice) return -1;
+
+            int nRemocoesIdx = 0;
+            scanf("%d", &nRemocoesIdx);
+
+            CampoValor *paresDeleteIdx = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+            ok = true;
+
+            for (int i = 0; i < nRemocoesIdx; i++) {
+                int mPares = 0;
+                scanf("%d", &mPares);
+                
+                lerPares(paresDeleteIdx, mPares);
+
+                if (ok && !deleteWhereIndexado(arquivoDados, arquivoIndice, paresDeleteIdx, mPares)) {
+                    ok = false; // falha crítica em alguma parte do processo
+                }
+
+                liberarPares(paresDeleteIdx, mPares); 
+            }
+            free(paresDeleteIdx);
+
+            if (ok) {
+                BinarioNaTela(arquivoDados);
+                BinarioNaTela(arquivoIndice);
+            }
+            break;
         default: // operação inválida
             return -1;
     }
