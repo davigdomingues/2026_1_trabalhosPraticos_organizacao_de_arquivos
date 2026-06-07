@@ -1,0 +1,102 @@
+// procedimento condutor (driver)
+PROCEDIMENTO RemoverChave(RAIZ, CHAVE)
+    RESULTADO = RemoverRecursivo(RAIZ, NULO, CHAVE)
+    
+    Se RESULTADO for "CHAVE_NAO_ENCONTRADA":
+        Retorne ERRO ("A chave solicitada não existe na estrutura")
+        
+    // Verificação de redução de altura da árvore
+    Se NumeroDeChaves(RAIZ) == 0:
+        Se RAIZ não for um nó folha:
+            NOVA_RAIZ = RAIZ.Filho[0]
+            Atualiza o cabeçalho do ficheiro para apontar para NOVA_RAIZ
+            Liberta a página da RAIZ antiga da memória/disco
+        Senão:
+            // A árvore ficou completamente vazia
+            RAIZ = NULO
+            Atualiza o cabeçalho do ficheiro
+            
+    Retorne SUCESSO
+FIM PROCEDIMENTO
+
+// remoão recursiva
+FUNÇÃO RemoverRecursivo(PAGINA_ATUAL, PAI, CHAVE)
+    Lê PAGINA_ATUAL do disco
+    Busca a posição (POS) onde a CHAVE deveria estar em PAGINA_ATUAL
+    
+    Se CHAVE for encontrada nesta página:
+        Se PAGINA_ATUAL for uma Folha:
+            Remove fisicamente a CHAVE e o seu respetivo registo de PAGINA_ATUAL
+        Senão: // É um nó interno
+            // Encontra a chave sucessora imediata descendo até à folha mais à esquerda da subárvore direita
+            PAGINA_SUCESSOR = EncontrarFolhaMaisAEsquerda(PAGINA_ATUAL.Filho[POS+1])
+            CHAVE_SUCESSORA = Primeira chave de PAGINA_SUCESSOR
+            
+            // Sobrescreve a chave atual com a sucessora
+            PAGINA_ATUAL.Chave[POS] = CHAVE_SUCESSORA
+            Grava PAGINA_ATUAL no disco
+            
+            // Inicia remoção recursiva para apagar a chave sucessora lá em baixo na folha
+            RemoverRecursivo(PAGINA_ATUAL.Filho[POS+1], PAGINA_ATUAL, CHAVE_SUCESSORA)
+            
+    Senão:
+        Se PAGINA_ATUAL for uma Folha:
+            Retorne "CHAVE_NAO_ENCONTRADA" // Chegou ao fundo e não encontrou
+            
+        // Continua a descer na árvore
+        RESULTADO = RemoverRecursivo(PAGINA_ATUAL.Filho[POS], PAGINA_ATUAL, CHAVE)
+        Se RESULTADO for "CHAVE_NAO_ENCONTRADA":
+            Retorne RESULTADO
+            
+    // PÓS-REMOÇÃO: Verificação de Underflow na subida da recursão
+    Se PAGINA_ATUAL != RAIZ E NumeroDeChaves(PAGINA_ATUAL) < MIN_CHAVES:
+        TratarUnderflow(PAGINA_ATUAL, PAI, INDICE_DE_PAGINA_ATUAL_NO_PAI)
+        
+    Grava PAGINA_ATUAL no disco (se sofreu alterações)
+    Retorne SUCESSO
+FIM FUNÇÃO
+
+// Redistribuição (tratamento de underflow)
+PROCEDIMENTO TratarUnderflow(PAGINA_ATUAL, PAI, INDICE_NO_PAI)
+    PAGINA_IRMA_ESQ = (INDICE_NO_PAI > 0) ? LêDisco(PAI.Filho[INDICE_NO_PAI - 1]) : NULO
+    PAGINA_IRMA_DIR = (INDICE_NO_PAI < PAI.NumFilhos - 1) ? LêDisco(PAI.Filho[INDICE_NO_PAI + 1]) : NULO
+    
+    // Tentativa 1: Emprestar da irmã à esquerda (Redistribuição)
+    Se PAGINA_IRMA_ESQ != NULO E NumeroDeChaves(PAGINA_IRMA_ESQ) > MIN_CHAVES:
+        Desce a chave separadora do PAI para o Início da PAGINA_ATUAL
+        Sobe a última chave da PAGINA_IRMA_ESQ para a posição separadora no PAI
+        Move o último ponteiro da PAGINA_IRMA_ESQ para o Início da PAGINA_ATUAL
+        Remove a última chave e ponteiro da PAGINA_IRMA_ESQ
+        Grava PAI, PAGINA_ATUAL e PAGINA_IRMA_ESQ no disco
+        Retorne
+        
+    // Tentativa 2: Emprestar da irmã à direita (Redistribuição)
+    Se PAGINA_IRMA_DIR != NULO E NumeroDeChaves(PAGINA_IRMA_DIR) > MIN_CHAVES:
+        Desce a chave separadora do PAI para o Final da PAGINA_ATUAL
+        Sobe a primeira chave da PAGINA_IRMA_DIR para a posição separadora no PAI
+        Move o primeiro ponteiro da PAGINA_IRMA_DIR para o Final da PAGINA_ATUAL
+        Remove a primeira chave e ponteiro da PAGINA_IRMA_DIR
+        Grava PAI, PAGINA_ATUAL e PAGINA_IRMA_DIR no disco
+        Retorne
+        
+    // Tentativa 3: Se as irmãs estão no limite mínimo, é necessário Concatenação (Merge)
+    Se PAGINA_IRMA_ESQ != NULO:
+        FazerMerge(PAGINA_IRMA_ESQ, PAGINA_ATUAL, PAI, INDICE_NO_PAI - 1)
+    Senão Se PAGINA_IRMA_DIR != NULO:
+        FazerMerge(PAGINA_ATUAL, PAGINA_IRMA_DIR, PAI, INDICE_NO_PAI)
+FIM PROCEDIMENTO
+
+// Concatenação (Merge)
+PROCEDIMENTO FazerMerge(PAGINA_ESQ, PAGINA_DIR, PAI, INDICE_CHAVE_PAI)
+    // Desce a chave do PAI que separa as duas páginas
+    Adiciona PAI.Chave[INDICE_CHAVE_PAI] ao final de PAGINA_ESQ
+    
+    // Transfere fisicamente todos os dados da Direita para a Esquerda
+    Copia todas as chaves e ponteiros de PAGINA_DIR para o final de PAGINA_ESQ
+    
+    // Contrai o nó PAI, preenchendo o espaço deixado
+    Remove PAI.Chave[INDICE_CHAVE_PAI] e o ponteiro para PAGINA_DIR de PAI
+    
+    Grava PAGINA_ESQ e PAI no disco
+    Apaga/Liberta o espaço físico de PAGINA_DIR no ficheiro (Reaproveitamento de bloco)
+FIM PROCEDIMENTO

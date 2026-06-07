@@ -12,6 +12,18 @@
 #define CHAVE_NAO_ENCONTRADA 0
 #define UNDERFLOW_PENDENTE 2
 
+static bool lerCabecalhoIndice(FILE *fileIndice, int *noRaiz, int *topo, int *proxRRN, int *nroNos) {
+    if (!fileIndice) return false;
+
+    if (fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET) != 0) return false;
+    if (fread(noRaiz, sizeof(int), 1, fileIndice) != 1) return false;
+    if (fread(topo, sizeof(int), 1, fileIndice) != 1) return false;
+    if (fread(proxRRN, sizeof(int), 1, fileIndice) != 1) return false;
+    if (fread(nroNos, sizeof(int), 1, fileIndice) != 1) return false;
+
+    return true;
+}
+
 static bool escreverCabecalhoIndice(FILE *fileIndice, char status, int noRaiz, int topo, int proxRRN, int nroNos) {
     if (!fileIndice) return false;
 
@@ -25,6 +37,42 @@ static bool escreverCabecalhoIndice(FILE *fileIndice, char status, int noRaiz, i
     return true;
 }
 
+bool encontrarPos(No *no, int chave, int *pos, int *ponteiroDados){
+    int i = 0;
+
+    if (!no) return false;
+
+    // busca sequencial dentro do nó, já que o número máximo de chaves é pequeno (3)
+    while (i < no->nroChaves && no->C[i] != -1 && chave > no->C[i]) i++;
+
+    if (pos) *pos = i;
+
+    if (i < no->nroChaves && no->C[i] == chave) {
+        if (ponteiroDados) *ponteiroDados = no->Pr[i];
+        return true;
+    }
+
+    return false;
+}
+
+static bool escreverNoNoRRN(FILE *fileIndice, int rrn, No *no) {
+    long inicioNo = TAM_BTREE_CABECALHO + (long)rrn * (long)TAM_NO;
+
+    if (!fileIndice || !no) return false;
+    if (fseek(fileIndice, inicioNo, SEEK_SET) != 0) return false;
+
+    return escreverNo(fileIndice, no);
+}
+
+static bool atualizarNoRaizIndice(FILE *fileIndice, int noRaiz) {
+    if (!fileIndice) return false;
+
+    if (fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET) != 0) return false;
+    if (fwrite(&noRaiz, sizeof(int), 1, fileIndice) != 1) return false;
+
+    return true;
+}
+
 static bool atualizarStatusIndice(FILE *fileIndice, char status) {
     if (!fileIndice) return false;
 
@@ -34,7 +82,33 @@ static bool atualizarStatusIndice(FILE *fileIndice, char status) {
     return true;
 }
 
-int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros){
+static bool criarRaizInicial(FILE *fileIndice, int chave, int ponteiroDados, int *rrnRaiz) {
+    No *raiz = criarNo(fileIndice, rrnRaiz);
+
+    if (!raiz) return false;
+
+    raiz->tipoNo = NO_FOLHA;
+    raiz->nroChaves = 1;
+    raiz->C[0] = chave;
+    raiz->Pr[0] = ponteiroDados;
+    raiz->P[0] = -1;
+    raiz->P[1] = -1;
+
+    if (!escreverNoNoRRN(fileIndice, *rrnRaiz, raiz)) {
+        free(raiz);
+        return false;
+    }
+
+    if (!atualizarNoRaizIndice(fileIndice, *rrnRaiz)) {
+        free(raiz);
+        return false;
+    }
+
+    free(raiz);
+    return true;
+}
+
+int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros){ // ver se muda ou não
     int chave = atoi(pares[CAMPO_COD_ESTACAO]->valor);
     int rrnRaiz;
     fseek(fileIndice, 1, SEEK_SET);
@@ -81,117 +155,137 @@ bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, 
 
     int subArvore;
     bool encontrou = encontrarChave(no, chave, &subArvore, ponteiroDados);
-    if(!encontrou){
-        bool res = buscaRecursiva(fileIndice, chave, subArvore, rrnNoRes, ponteiroDados);
-        free(no);
-        return res;
-    }
+
+    if(!encontrou) return buscaRecursiva(fileIndice, chave, subArvore, rrnNoRes, ponteiroDados);
 
     *rrnNoRes = rrnNoAtual;
     return true;
 }
 
-No *split(FILE *fileIndice, No *no, int chaveNova, int ponteiroDadosChaveNova, int filhoDirChaveNova, int *chaveASerPromovida, int *filhoDirChaveASerPromovida){
+static No *split(FILE *fileIndice, No *no, int posicaoInsercao, int chaveNova, int ponteiroDadosChaveNova, int filhoDirChaveNova, int *chaveASerPromovida, int *ponteiroDadosPromovido, int *filhoDirChaveASerPromovida) {
     int rrnNovoNo;
     No *novoNo = criarNo(fileIndice, &rrnNovoNo);
-    int chaveMeio = distribuirOrdenado(fileIndice, no, novoNo, chaveNova, filhoDirChaveNova);
-    *chaveASerPromovida = chaveMeio;
+
+    if (!novoNo) return NULL;
+
+    *chaveASerPromovida = distribuirOrdenado(no, novoNo, posicaoInsercao, chaveNova, ponteiroDadosChaveNova, no->P[posicaoInsercao], filhoDirChaveNova, ponteiroDadosPromovido);
     *filhoDirChaveASerPromovida = rrnNovoNo;
 
     return novoNo;
 }
 
-void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, int chavePromocao, int filhoDirPromocao){
+static bool criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, int chavePromocao, int ponteiroDadosPromocao, int filhoDirPromocao){
     int rrnNovaRaiz;
     No *novaRaiz = criarNo(fileIndice, &rrnNovaRaiz);
 
+    if(!novaRaiz) return false;
+
+    novaRaiz->tipoNo = NO_RAIZ;
     novaRaiz->nroChaves = 1;
     novaRaiz->C[0] = chavePromocao;
-    novaRaiz->P[0] = rrnRaizAtual;          //filho a esquerda é a raiz antiga
-    novaRaiz->P[1] = filhoDirPromocao; //filho a direita é o nó criado no split
-    novaRaiz->tipoNo = NO_RAIZ;
+    novaRaiz->Pr[0] = ponteiroDadosPromocao;
+    novaRaiz->P[0] = rrnRaizAtual; // filho da esquerda é a raiz antiga
+    novaRaiz->P[1] = filhoDirPromocao; // filho da direita é o nó criado no split
 
-    //salva a nova raiz no arquivo
-    int inicioNovaRaiz = TAM_BTREE_CABECALHO + rrnNovaRaiz * TAM_NO;
-    fseek(fileIndice, inicioNovaRaiz, SEEK_SET);
-    escreverNo(fileIndice, novaRaiz);
+    if(!escreverNoNoRRN(fileIndice, rrnNovaRaiz, novaRaiz)) {
+        free(novaRaiz);
+        return false;
+    }
 
-    //atualiza o cabeçalho do arquivo para apontar para o RRN da nova raiz
-    fseek(fileIndice, 1, SEEK_SET); 
-    fwrite(&rrnNovaRaiz, sizeof(int), 1, fileIndice);
-        
+    if(!atualizarNoRaizIndice(fileIndice, rrnNovaRaiz)) {
+        free(novaRaiz);
+        return false;
+    }
+
     free(novaRaiz);
+    return true;
 }
 
 int insertIndice(FILE *fileIndice, int chave, int ponteiroDados){
-    int rrnRaiz;
-    fseek(fileIndice, 1, SEEK_SET); //(verificar se é isso mesmo)
-    fread(&rrnRaiz, sizeof(int), 1, fileIndice);
+    int rrnRaiz, topo, proxRRN, nroNos;
+    int chavePromocao, ponteiroDadosPromocao, filhoDirPromocao;
+    int res;
 
-    int chavePromocao;
-    int filhoDirPromocao;
-    int res = insertIndiceRec(fileIndice, chave, ponteiroDados, rrnRaiz, &chavePromocao, &filhoDirPromocao);
-    if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, chavePromocao, filhoDirPromocao);
+    if(!fileIndice || !lerCabecalhoIndice(fileIndice, &rrnRaiz, &topo, &proxRRN, &nroNos)) return ERRO_DE_INSERCAO;
 
-    //atualiza o número de nós da árvore
-    fseek(fileIndice, 13, SEEK_SET);
-    int nroNos;
-    fread(&nroNos, sizeof(int), 1, fileIndice);
-    nroNos++;
-    fseek(fileIndice, 13, SEEK_SET);
-    fwrite(&nroNos, sizeof(int), 1, fileIndice);
+    if(rrnRaiz == -1){
+        return criarRaizInicial(fileIndice, chave, ponteiroDados, &rrnRaiz) ? 1 : ERRO_DE_INSERCAO;
+    }
 
-    //atualiza o status de consistência
-    fseek(fileIndice, 0, SEEK_SET);
-    char consistente = '1';
-    fwrite(&consistente, sizeof(char), 1, fileIndice);
-    return 1;
+    res = insertIndiceRec(fileIndice, chave, ponteiroDados, rrnRaiz, &chavePromocao, &ponteiroDadosPromocao, &filhoDirPromocao);
+    if(res == PROMOCAO){
+        if(!criarNovaRaiz(fileIndice, rrnRaiz, chavePromocao, ponteiroDadosPromocao, filhoDirPromocao)) return ERRO_DE_INSERCAO;
+    }
+
+    return res == ERRO_DE_INSERCAO ? ERRO_DE_INSERCAO : 1;
 }
 
-int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, int *chaveASerPromovida, int *filhoDirChaveASerPromovida){
+int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, int *chaveASerPromovida, int *ponteiroDadosPromovido, int *filhoDirChaveASerPromovida){
+    int inicioNo;
+    No *no;
+    int posicao, ponteiroEncontrado, subArvore;
+    int chavePromovidaFilho, ponteiroDadosPromovidoFilho, filhoDirPromovido;
+
     if(rrnNoAtual == -1){
         *chaveASerPromovida = chave;
+        *ponteiroDadosPromovido = ponteiroDados;
         *filhoDirChaveASerPromovida = -1;
         return PROMOCAO;
     }
 
-    int inicioNo = TAM_BTREE_CABECALHO + rrnNoAtual * TAM_NO;
+    inicioNo = TAM_BTREE_CABECALHO + rrnNoAtual * TAM_NO;
     fseek(fileIndice, inicioNo, SEEK_SET);
 
-    No *no = incializarNo();
+    no = incializarNo();
+    if(!no) return ERRO_DE_INSERCAO;
+
     lerNo(fileIndice, no);
 
-    int subArvore;
-    int dummy; //não vai ser utilizado
-    bool encontrou = encontrarChave(no, chave, &subArvore, &dummy);
-    if(encontrou) return ERRO_DE_INSERCAO;
-
-    int chavePromovida;
-    int filhoDirPromovido;
-    int res = insertIndiceRec(fileIndice, chave, ponteiroDados, subArvore, &chavePromovida, &filhoDirPromovido);
-
-    if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) return res;
-    else if (no->nroChaves < NRO_MAX_CHAVES){
-        insereOrdenado(no, chavePromovida, ponteiroDados, filhoDirPromovido);
-        if(no->tipoNo != NO_RAIZ) no->tipoNo = NO_FOLHA; // Proteção para não sobrescrever raiz
-
-        fseek(fileIndice, inicioNo, SEEK_SET);
-        escreverNo(fileIndice, no);
-        return SEM_PROMOCAO;
-    } else {
-        No *novoNo = split(fileIndice, no, chavePromovida, ponteiroDados, filhoDirPromovido, chaveASerPromovida, filhoDirChaveASerPromovida);
-
-        fseek(fileIndice, inicioNo, SEEK_SET);
-        escreverNo(fileIndice, no);
-        if(no->tipoNo != NO_RAIZ) no->tipoNo = NO_INTERMEDIARIO;
-
-        int inicioNovoNo = TAM_BTREE_CABECALHO + *filhoDirChaveASerPromovida * TAM_NO;
-        fseek(fileIndice, inicioNovoNo, SEEK_SET);
-        escreverNo(fileIndice, novoNo);
-        return PROMOCAO;
+    if(encontrarPos(no, chave, &posicao, &ponteiroEncontrado)) {
+        free(no);
+        return ERRO_DE_INSERCAO;
     }
 
-    return 0;
+    subArvore = no->P[posicao];
+    free(no);
+
+    int res = insertIndiceRec(fileIndice, chave, ponteiroDados, subArvore, &chavePromovidaFilho, &ponteiroDadosPromovidoFilho, &filhoDirPromovido);
+
+    if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) return res;
+
+    no = incializarNo();
+    if(!no) return ERRO_DE_INSERCAO;
+
+    fseek(fileIndice, inicioNo, SEEK_SET);
+    lerNo(fileIndice, no);
+
+    if (no->nroChaves < NRO_MAX_CHAVES) {
+        insereOrdenado(no, posicao, chavePromovidaFilho, ponteiroDadosPromovidoFilho, subArvore, filhoDirPromovido);
+
+        if(!escreverNoNoRRN(fileIndice, rrnNoAtual, no)) {
+            free(no);
+            return ERRO_DE_INSERCAO;
+        }
+
+        free(no);
+        return SEM_PROMOCAO;
+    }
+
+    No *novoNo = split(fileIndice, no, posicao, chavePromovidaFilho, ponteiroDadosPromovidoFilho, filhoDirPromovido, chaveASerPromovida, ponteiroDadosPromovido, filhoDirChaveASerPromovida);
+    if(!novoNo) {
+        free(no);
+        return ERRO_DE_INSERCAO;
+    }
+
+    if(!escreverNoNoRRN(fileIndice, rrnNoAtual, no) || !escreverNoNoRRN(fileIndice, *filhoDirChaveASerPromovida, novoNo)) {
+        free(no);
+        free(novoNo);
+        return ERRO_DE_INSERCAO;
+    }
+
+    free(no);
+    free(novoNo);
+    return PROMOCAO;
 }
 
 bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
@@ -292,6 +386,7 @@ bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
             break;
         }
 
+        // printf("Inserindo chave=%d offset=%ld\n", chave, offsetRegistro); // debug puramente
         if (insertIndice(fileIndice, chave, (int)offsetRegistro) == ERRO_DE_INSERCAO) {
             ok = false;
             break;
@@ -458,72 +553,95 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
 // Analisa os irmãos adjacentes para executar empréstimo (redistribuição) ou fusão (merge)
 void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho) {
     int rrnAtual = pai->P[indicePonteiroFilho];
-    No *atual = incializarNo();
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET);
-    lerNo(fileIndice, atual);
-
-    No *irmEsq = NULL;
-    int rrnIrmEsq = -1;
+    No *atual = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); lerNo(fileIndice, atual);
+    
+    No *irmEsq = NULL; int rrnIrmEsq = -1;
     if (indicePonteiroFilho > 0) {
-        rrnIrmEsq = pai->P[indicePonteiroFilho - 1];
-        irmEsq = incializarNo();
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET);
-        lerNo(fileIndice, irmEsq);
+        rrnIrmEsq = pai->P[indicePonteiroFilho - 1]; irmEsq = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); lerNo(fileIndice, irmEsq);
     }
 
-    No *irmDir = NULL;
-    int rrnIrmDir = -1;
+    No *irmDir = NULL; int rrnIrmDir = -1;
     if (indicePonteiroFilho < pai->nroChaves) {
-        rrnIrmDir = pai->P[indicePonteiroFilho + 1];
-        irmDir = incializarNo();
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET);
-        lerNo(fileIndice, irmDir);
+        rrnIrmDir = pai->P[indicePonteiroFilho + 1]; irmDir = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); lerNo(fileIndice, irmDir);
     }
 
-    // redistribuição para o irmão direito somente, conforme especificação do trabalho 2
+    // 1. Empréstimo da DIREITA
     if (irmDir != NULL && irmDir->nroChaves > MIN_CHAVES) {
-        atual->C[atual->nroChaves] = pai->C[indicePonteiroFilho];
-        atual->Pr[atual->nroChaves] = pai->Pr[indicePonteiroFilho];
-        
-        atual->P[atual->nroChaves + 1] = irmDir->P[0];
-        
-        pai->C[indicePonteiroFilho] = irmDir->C[0];
-        pai->Pr[indicePonteiroFilho] = irmDir->Pr[0];
-        
-        for (int i = 0; i < irmDir->nroChaves - 1; i++) {
-            irmDir->C[i] = irmDir->C[i+1];
-            irmDir->Pr[i] = irmDir->Pr[i+1];
-            irmDir->P[i] = irmDir->P[i+1];
+        int chavesTotal = 1 + irmDir->nroChaves;
+        int chavesEsq = chavesTotal / 2; // Garante a regra: "nó mais à esquerda deverá conter uma chave a mais"
+        int chavesDir = chavesTotal - chavesEsq - 1;
+
+        int bufC[4], bufPr[4], bufP[5];
+        bufC[0] = pai->C[indicePonteiroFilho]; bufPr[0] = pai->Pr[indicePonteiroFilho]; bufP[0] = atual->P[0];
+        for(int i = 0; i < irmDir->nroChaves; i++) {
+            bufC[i+1] = irmDir->C[i]; bufPr[i+1] = irmDir->Pr[i]; bufP[i+1] = irmDir->P[i];
         }
-        irmDir->P[irmDir->nroChaves - 1] = irmDir->P[irmDir->nroChaves];
-        
-        irmDir->C[irmDir->nroChaves - 1] = -1;
-        irmDir->Pr[irmDir->nroChaves - 1] = -1;
-        irmDir->P[irmDir->nroChaves] = -1;
-        
-        atual->nroChaves++;
-        irmDir->nroChaves--;
+        bufP[irmDir->nroChaves + 1] = irmDir->P[irmDir->nroChaves];
+
+        atual->nroChaves = chavesEsq;
+        for(int i = 0; i < chavesEsq; i++) { atual->C[i] = bufC[i]; atual->Pr[i] = bufPr[i]; atual->P[i] = bufP[i]; }
+        atual->P[chavesEsq] = bufP[chavesEsq];
+
+        pai->C[indicePonteiroFilho] = bufC[chavesEsq]; pai->Pr[indicePonteiroFilho] = bufPr[chavesEsq];
+
+        irmDir->nroChaves = chavesDir;
+        for(int i = 0; i < chavesDir; i++) {
+            irmDir->C[i] = bufC[chavesEsq + 1 + i]; irmDir->Pr[i] = bufPr[chavesEsq + 1 + i]; irmDir->P[i] = bufP[chavesEsq + 1 + i];
+        }
+        irmDir->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
+        for(int i = chavesDir; i < 3; i++) { irmDir->C[i] = -1; irmDir->Pr[i] = -1; irmDir->P[i+1] = -1; }
 
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmDir);
-        
-        free(atual); if(irmEsq) free(irmEsq); if(irmDir) free(irmDir);
-        return;
+
+        free(atual); if(irmEsq) free(irmEsq); free(irmDir); return;
     }
 
-    // concatenacao primeiro com a direita, depois com a esquerda, conforme especificação do trabalho 2
-    if (irmDir != NULL) {
-        fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho);
-    } 
-    // caso não seja possível, concatenacao à esquerda
-    else if (irmEsq != NULL) {
+    // 2. Empréstimo da ESQUERDA
+    if (irmEsq != NULL && irmEsq->nroChaves > MIN_CHAVES) {
+        int chavesTotal = irmEsq->nroChaves + 1;
+        int chavesEsq = chavesTotal / 2;
+        int chavesDir = chavesTotal - chavesEsq - 1;
+
+        int bufC[4], bufPr[4], bufP[5];
+        for(int i = 0; i < irmEsq->nroChaves; i++) {
+            bufC[i] = irmEsq->C[i]; bufPr[i] = irmEsq->Pr[i]; bufP[i] = irmEsq->P[i];
+        }
+        bufP[irmEsq->nroChaves] = irmEsq->P[irmEsq->nroChaves];
+        bufC[irmEsq->nroChaves] = pai->C[indicePonteiroFilho - 1]; bufPr[irmEsq->nroChaves] = pai->Pr[indicePonteiroFilho - 1];
+        bufP[irmEsq->nroChaves + 1] = atual->P[0];
+
+        irmEsq->nroChaves = chavesEsq;
+        for(int i = 0; i < chavesEsq; i++) { irmEsq->C[i] = bufC[i]; irmEsq->Pr[i] = bufPr[i]; irmEsq->P[i] = bufP[i]; }
+        irmEsq->P[chavesEsq] = bufP[chavesEsq];
+        for(int i = chavesEsq; i < 3; i++) { irmEsq->C[i] = -1; irmEsq->Pr[i] = -1; irmEsq->P[i+1] = -1; }
+
+        pai->C[indicePonteiroFilho - 1] = bufC[chavesEsq]; pai->Pr[indicePonteiroFilho - 1] = bufPr[chavesEsq];
+
+        atual->nroChaves = chavesDir;
+        for(int i = 0; i < chavesDir; i++) {
+            atual->C[i] = bufC[chavesEsq + 1 + i]; atual->Pr[i] = bufPr[chavesEsq + 1 + i]; atual->P[i] = bufP[chavesEsq + 1 + i];
+        }
+        atual->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
+
+        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
+        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
+        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmEsq);
+
+        free(atual); free(irmEsq); if(irmDir) free(irmDir); return;
+    }
+
+    // 3. MERGE ESQUERDA (O Enunciado exige tentar Esquerda primeiro na Concatenação)
+    if (irmEsq != NULL) {
         fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1);
     }
+    // 4. MERGE DIREITA (Se não for possível esquerda)
+    else if (irmDir != NULL) {
+        fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho);
+    }
     
-    free(atual); 
-    if(irmEsq) free(irmEsq); 
-    if(irmDir) free(irmDir);
+    free(atual); if(irmEsq) free(irmEsq); if(irmDir) free(irmDir);
 }
 
 // Une fisicamente duas páginas e rebaixa a chave separadora do pai
@@ -585,36 +703,37 @@ bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *
     int idxCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
 
     if (idxCodEstacao != -1 && !valorEhNulo(pares[idxCodEstacao].valor)) {
-        // Cenário 1: Busca otimizada O(log n) via Árvore-B
-        int chaveBuscada = atoi(pares[idxCodEstacao].valor);
-        int rrnRaiz;
-        fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
-        fread(&rrnRaiz, sizeof(int), 1, fileIndice);
+            int chaveBuscada = atoi(pares[idxCodEstacao].valor);
+            int rrnRaiz; fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
-        int rrnResIndice, ponteiroResDados;
-        if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) {
-            fseek(fileDados, ponteiroResDados, SEEK_SET);
-            char removido;
-            fread(&removido, sizeof(char), 1, fileDados);
-            
-            if (removido == '0') {
-                // Remove fisicamente o nó do arquivo de dados e atualiza o encadeamento
+            int rrnResIndice, ponteiroResDados;
+            if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) {
                 fseek(fileDados, ponteiroResDados, SEEK_SET);
-                char flag = '1';
-                fwrite(&flag, sizeof(char), 1, fileDados);
-                fwrite(&topoDados, sizeof(int), 1, fileDados);
+                char removido; fread(&removido, sizeof(char), 1, fileDados);
                 
-                int rrnRemovido = (ponteiroResDados - TAM_CABECALHO) / TAM_REG;
-                topoDados = rrnRemovido;
-                
-                fseek(fileDados, 1, SEEK_SET);
-                fwrite(&topoDados, sizeof(int), 1, fileDados);
-
-                // Dispara a remoção de baixo nível na B-Tree
-                removerChaveIndice(fileIndice, chaveBuscada);
+                if (removido == '0') {
+                    // --- CORREÇÃO 1: FILTRAGEM COMPLETA ---
+                    int rrnAlvo = (ponteiroResDados - TAM_CABECALHO) / TAM_REG;
+                    
+                    // Valida se os outros filtros (nome, linha, etc) também batem no registro encontrado
+                    int rrnConfirmado = selectWhere(fileDados, NULL, pares, mPares, rrnAlvo, true, true);
+                    
+                    if (rrnConfirmado == rrnAlvo) { // Todos os filtros bateram! 
+                        fseek(fileDados, ponteiroResDados, SEEK_SET); 
+                        char flag = '1';
+                        fwrite(&flag, sizeof(char), 1, fileDados); 
+                        fwrite(&topoDados, sizeof(int), 1, fileDados);
+                        
+                        topoDados = rrnAlvo;
+                        fseek(fileDados, 1, SEEK_SET); 
+                        fwrite(&topoDados, sizeof(int), 1, fileDados);
+                        
+                        removerChaveIndice(fileIndice, chaveBuscada);
+                    }
+                    // Se não bateu os filtros, ignora. O registro não deve ser apagado!
+                }
             }
-        }
-    } else {
+        } else {
         // Cenário 2: Busca sequencial O(n) lendo diretamente no disco
         int rrn = -1;
         while (true) {

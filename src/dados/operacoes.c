@@ -427,9 +427,6 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
         atualizarStatus(fileDados, '1', true);
     }
 
-    if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
-    if (reg.tamNomeLinha > 0) free(reg.nomeLinha);
-
     // caso haja algum erro durante a escrita do registro ou a atualização dos contadores
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");

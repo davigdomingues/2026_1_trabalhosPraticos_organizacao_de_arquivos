@@ -24,10 +24,10 @@ typedef struct No {
 No *incializarNo();
 void lerNo(FILE *fileIndice, No *no);
 bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
-bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir);
+bool insereOrdenado(No *no, int posicao, int chave, int ponteiroDados, int filhoEsq, int filhoDir); // mudou aqui
 bool escreverNo(FILE *file, No *no);
 No *criarNo(FILE *fileIndice, int *novoRRN);
-int distribuirOrdenado(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int filhoDirChaveNova);
+int distribuirOrdenado(No *no, No *novoNo, int posicaoInsercao, int chaveNova, int ponteiroDadosNova, int filhoEsqNova, int filhoDirNova, int *ponteiroDadosPromovido); // mudou aqui
 void apagarNo(FILE *fileIndice, int rrnNoParaApagar);
 
 #endif

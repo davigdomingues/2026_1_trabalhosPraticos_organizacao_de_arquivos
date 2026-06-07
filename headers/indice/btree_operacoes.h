@@ -18,7 +18,7 @@
 int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros);
 bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados);
 int insertIndice(FILE *fileIndice, int chave, int ponteiroDados);
-int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, int *chavePromocao, int *filhoDirPromocao);
+int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, int *chavePromocao, int *filhoDirPromocao, int *ponteiroDadosPromovido); // essa é a versão mais adequada
 
 /**
  * @brief cria a árvore-B de índice a partir do arquivo binário de dados.
