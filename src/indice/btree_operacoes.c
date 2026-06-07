@@ -44,7 +44,11 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
     int ponteiroRes;
     bool encontrou = buscaRecursiva(fileIndice, chave, rrnRaiz, &rrnRes, &ponteiroRes);
 
-    if(!encontrou) return -1;
+    if(!encontrou){
+        printf("Registro inexistente.\n");
+        printf("\n");
+        return -1;
+    }
     else {
         fseek(fileDados, ponteiroRes, SEEK_SET);
 
@@ -52,6 +56,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
         fread(&removido, sizeof(char), 1, fileDados);
         if(removido == '1'){
             printf("Registro inexistente.\n");
+            printf("\n");
             return -1;
         }
 
@@ -62,10 +67,12 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
         //numFiltros-1 porque o codEstacao foi retirado dos critérios de busca
         if(numMatches != numFiltros-1){
             printf("Registro inexistente.\n");
+            printf("\n");
             return -1;
         }
 
         printReg(reg);
+        printf("\n");
         return ponteiroRes;
     }
 }

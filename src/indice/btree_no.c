@@ -25,7 +25,7 @@ No *incializarNo(){
     No *no = (No*) malloc(sizeof(No));
     int *C = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
     int *Pr = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
-    int *P = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
+    int *P = (int*) malloc(sizeof(int) * (NRO_MAX_CHAVES+1));
     
     no->proximo = -1;
     no->tipoNo = NO_NAO_INICIALIZADO;
