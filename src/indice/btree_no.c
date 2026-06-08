@@ -278,7 +278,6 @@ void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {
     fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
     fwrite(&rrnNoParaApagar, sizeof(int), 1, fileIndice);
 
-    /*
     // Decrementa estritamente o nroNos, como pede a especificação do trabalho 2
     fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     int nroNos;
@@ -286,5 +285,4 @@ void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {
     nroNos--;
     fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     fwrite(&nroNos, sizeof(int), 1, fileIndice);
-    */
 }

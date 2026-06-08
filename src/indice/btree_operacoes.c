@@ -424,13 +424,15 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
         return false; 
     }
 
+    /*
     // nroNos decrementa a cada sucesso de remoção, mesmo que seja apenas lógica
     fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     int nroNos;
     fread(&nroNos, sizeof(int), 1, fileIndice);
-    nroNos--;
+    // nroNos--;
     fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     fwrite(&nroNos, sizeof(int), 1, fileIndice);
+    */
 
     // esvaziamento de raiz tratado somente após a remoção recursiva para evitar casos de underflow pendente na raiz
     No *raiz = incializarNo();
@@ -444,6 +446,8 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
             
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
             fwrite(&novaRaiz, sizeof(int), 1, fileIndice);
+
+            apagarNo(fileIndice, rrnRaiz);
             
             No *nRaiz = incializarNo();
             fseek(fileIndice, TAM_BTREE_CABECALHO + novaRaiz * TAM_NO, SEEK_SET);
@@ -456,7 +460,6 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
             escreverNo(fileIndice, nRaiz);
             free(nRaiz);
 
-            apagarNo(fileIndice, rrnRaiz);
         } else {
             int vazio = -1;
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
@@ -488,9 +491,9 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
                 noAtual->C[i] = noAtual->C[i+1];
                 noAtual->Pr[i] = noAtual->Pr[i+1];
             }
-            noAtual->C[noAtual->nroChaves - 1] = -1;
-            noAtual->Pr[noAtual->nroChaves - 1] = -1;
             noAtual->nroChaves--;
+            noAtual->C[noAtual->nroChaves] = -1;
+            noAtual->Pr[noAtual->nroChaves] = -1;            
         } else {
             // Substituição pela chave sucessora em nós internos
             int rrnSucessor = noAtual->P[pos+1];
@@ -663,10 +666,10 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
         pai->Pr[i] = pai->Pr[i+1];
         pai->P[i+1] = pai->P[i+2];
     }
-    pai->C[pai->nroChaves - 1] = -1;
-    pai->Pr[pai->nroChaves - 1] = -1;
-    pai->P[pai->nroChaves] = -1;
     pai->nroChaves--;
+    pai->C[pai->nroChaves] = -1;
+    pai->Pr[pai->nroChaves] = -1;
+    pai->P[pai->nroChaves + 1] = -1;
 
     fseek(fileIndice, TAM_BTREE_CABECALHO + rrnEsq * TAM_NO, SEEK_SET); 
     escreverNo(fileIndice, esq);
