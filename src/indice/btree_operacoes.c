@@ -109,7 +109,16 @@ bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, 
 No *split(FILE *fileIndice, No *no, int chavePromovida, int ponteiroDadosChavePromovida, int filhoDirChavePromovida, int *chaveASerPromovida, int *ponteiroDadosChaveASerPromovida, int *filhoDirChaveASerPromovida){
     int rrnNovoNo;
     No *novoNo = criarNo(fileIndice, &rrnNovoNo);
-    novoNo->tipoNo = no->tipoNo;
+
+    // Se a página que estourou era a RAIZ (0), ela perde a "coroa".
+    if (no->tipoNo == NO_RAIZ) {
+        no->tipoNo = NO_INTERMEDIARIO;
+        novoNo->tipoNo = NO_INTERMEDIARIO;
+    } else {
+        // Se era Folha (-1) ou já era Intermediário (1), apenas copia
+        novoNo->tipoNo = no->tipoNo; 
+    }
+
     int chaveMeio = distribuirUniforme(fileIndice, no, novoNo, chavePromovida, ponteiroDadosChavePromovida, filhoDirChavePromovida, ponteiroDadosChaveASerPromovida);
     *chaveASerPromovida = chaveMeio;
     *filhoDirChaveASerPromovida = rrnNovoNo;
