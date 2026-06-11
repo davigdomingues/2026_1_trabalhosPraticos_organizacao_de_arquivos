@@ -365,13 +365,15 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
         return false; 
     }
 
+    /*
     // nroNos decrementa a cada sucesso de remoção, mesmo que seja apenas lógica
     fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     int nroNos;
     fread(&nroNos, sizeof(int), 1, fileIndice);
-    nroNos--;
+    // nroNos--;
     fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     fwrite(&nroNos, sizeof(int), 1, fileIndice);
+    */
 
     // esvaziamento de raiz tratado somente após a remoção recursiva para evitar casos de underflow pendente na raiz
     No *raiz = incializarNo();
@@ -385,6 +387,8 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
             
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
             fwrite(&novaRaiz, sizeof(int), 1, fileIndice);
+
+            apagarNo(fileIndice, rrnRaiz);
             
             No *nRaiz = incializarNo();
             fseek(fileIndice, TAM_BTREE_CABECALHO + novaRaiz * TAM_NO, SEEK_SET);
@@ -397,7 +401,6 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
             escreverNo(fileIndice, nRaiz);
             free(nRaiz);
 
-            apagarNo(fileIndice, rrnRaiz);
         } else {
             int vazio = -1;
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
@@ -429,9 +432,9 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
                 noAtual->C[i] = noAtual->C[i+1];
                 noAtual->Pr[i] = noAtual->Pr[i+1];
             }
-            noAtual->C[noAtual->nroChaves - 1] = -1;
-            noAtual->Pr[noAtual->nroChaves - 1] = -1;
             noAtual->nroChaves--;
+            noAtual->C[noAtual->nroChaves] = -1;
+            noAtual->Pr[noAtual->nroChaves] = -1;            
         } else {
             // Substituição pela chave sucessora em nós internos
             int rrnSucessor = noAtual->P[pos+1];
@@ -494,72 +497,95 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
 // Analisa os irmãos adjacentes para executar empréstimo (redistribuição) ou fusão (merge)
 void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho) {
     int rrnAtual = pai->P[indicePonteiroFilho];
-    No *atual = incializarNo();
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET);
-    lerNo(fileIndice, atual);
-
-    No *irmEsq = NULL;
-    int rrnIrmEsq = -1;
+    No *atual = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); lerNo(fileIndice, atual);
+    
+    No *irmEsq = NULL; int rrnIrmEsq = -1;
     if (indicePonteiroFilho > 0) {
-        rrnIrmEsq = pai->P[indicePonteiroFilho - 1];
-        irmEsq = incializarNo();
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET);
-        lerNo(fileIndice, irmEsq);
+        rrnIrmEsq = pai->P[indicePonteiroFilho - 1]; irmEsq = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); lerNo(fileIndice, irmEsq);
     }
 
-    No *irmDir = NULL;
-    int rrnIrmDir = -1;
+    No *irmDir = NULL; int rrnIrmDir = -1;
     if (indicePonteiroFilho < pai->nroChaves) {
-        rrnIrmDir = pai->P[indicePonteiroFilho + 1];
-        irmDir = incializarNo();
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET);
-        lerNo(fileIndice, irmDir);
+        rrnIrmDir = pai->P[indicePonteiroFilho + 1]; irmDir = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); lerNo(fileIndice, irmDir);
     }
 
-    // redistribuição para o irmão direito somente, conforme especificação do trabalho 2
+    // 1. Empréstimo da DIREITA
     if (irmDir != NULL && irmDir->nroChaves > MIN_CHAVES) {
-        atual->C[atual->nroChaves] = pai->C[indicePonteiroFilho];
-        atual->Pr[atual->nroChaves] = pai->Pr[indicePonteiroFilho];
-        
-        atual->P[atual->nroChaves + 1] = irmDir->P[0];
-        
-        pai->C[indicePonteiroFilho] = irmDir->C[0];
-        pai->Pr[indicePonteiroFilho] = irmDir->Pr[0];
-        
-        for (int i = 0; i < irmDir->nroChaves - 1; i++) {
-            irmDir->C[i] = irmDir->C[i+1];
-            irmDir->Pr[i] = irmDir->Pr[i+1];
-            irmDir->P[i] = irmDir->P[i+1];
+        int chavesTotal = 1 + irmDir->nroChaves;
+        int chavesEsq = chavesTotal / 2; // Garante a regra: "nó mais à esquerda deverá conter uma chave a mais"
+        int chavesDir = chavesTotal - chavesEsq - 1;
+
+        int bufC[4], bufPr[4], bufP[5];
+        bufC[0] = pai->C[indicePonteiroFilho]; bufPr[0] = pai->Pr[indicePonteiroFilho]; bufP[0] = atual->P[0];
+        for(int i = 0; i < irmDir->nroChaves; i++) {
+            bufC[i+1] = irmDir->C[i]; bufPr[i+1] = irmDir->Pr[i]; bufP[i+1] = irmDir->P[i];
         }
-        irmDir->P[irmDir->nroChaves - 1] = irmDir->P[irmDir->nroChaves];
-        
-        irmDir->C[irmDir->nroChaves - 1] = -1;
-        irmDir->Pr[irmDir->nroChaves - 1] = -1;
-        irmDir->P[irmDir->nroChaves] = -1;
-        
-        atual->nroChaves++;
-        irmDir->nroChaves--;
+        bufP[irmDir->nroChaves + 1] = irmDir->P[irmDir->nroChaves];
+
+        atual->nroChaves = chavesEsq;
+        for(int i = 0; i < chavesEsq; i++) { atual->C[i] = bufC[i]; atual->Pr[i] = bufPr[i]; atual->P[i] = bufP[i]; }
+        atual->P[chavesEsq] = bufP[chavesEsq];
+
+        pai->C[indicePonteiroFilho] = bufC[chavesEsq]; pai->Pr[indicePonteiroFilho] = bufPr[chavesEsq];
+
+        irmDir->nroChaves = chavesDir;
+        for(int i = 0; i < chavesDir; i++) {
+            irmDir->C[i] = bufC[chavesEsq + 1 + i]; irmDir->Pr[i] = bufPr[chavesEsq + 1 + i]; irmDir->P[i] = bufP[chavesEsq + 1 + i];
+        }
+        irmDir->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
+        for(int i = chavesDir; i < 3; i++) { irmDir->C[i] = -1; irmDir->Pr[i] = -1; irmDir->P[i+1] = -1; }
 
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmDir);
-        
-        free(atual); if(irmEsq) free(irmEsq); if(irmDir) free(irmDir);
-        return;
+
+        free(atual); if(irmEsq) free(irmEsq); free(irmDir); return;
     }
 
-    // concatenacao primeiro com a direita, depois com a esquerda, conforme especificação do trabalho 2
-    if (irmDir != NULL) {
-        fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho);
-    } 
-    // caso não seja possível, concatenacao à esquerda
-    else if (irmEsq != NULL) {
+    // 2. Empréstimo da ESQUERDA
+    if (irmEsq != NULL && irmEsq->nroChaves > MIN_CHAVES) {
+        int chavesTotal = irmEsq->nroChaves + 1;
+        int chavesEsq = chavesTotal / 2;
+        int chavesDir = chavesTotal - chavesEsq - 1;
+
+        int bufC[4], bufPr[4], bufP[5];
+        for(int i = 0; i < irmEsq->nroChaves; i++) {
+            bufC[i] = irmEsq->C[i]; bufPr[i] = irmEsq->Pr[i]; bufP[i] = irmEsq->P[i];
+        }
+        bufP[irmEsq->nroChaves] = irmEsq->P[irmEsq->nroChaves];
+        bufC[irmEsq->nroChaves] = pai->C[indicePonteiroFilho - 1]; bufPr[irmEsq->nroChaves] = pai->Pr[indicePonteiroFilho - 1];
+        bufP[irmEsq->nroChaves + 1] = atual->P[0];
+
+        irmEsq->nroChaves = chavesEsq;
+        for(int i = 0; i < chavesEsq; i++) { irmEsq->C[i] = bufC[i]; irmEsq->Pr[i] = bufPr[i]; irmEsq->P[i] = bufP[i]; }
+        irmEsq->P[chavesEsq] = bufP[chavesEsq];
+        for(int i = chavesEsq; i < 3; i++) { irmEsq->C[i] = -1; irmEsq->Pr[i] = -1; irmEsq->P[i+1] = -1; }
+
+        pai->C[indicePonteiroFilho - 1] = bufC[chavesEsq]; pai->Pr[indicePonteiroFilho - 1] = bufPr[chavesEsq];
+
+        atual->nroChaves = chavesDir;
+        for(int i = 0; i < chavesDir; i++) {
+            atual->C[i] = bufC[chavesEsq + 1 + i]; atual->Pr[i] = bufPr[chavesEsq + 1 + i]; atual->P[i] = bufP[chavesEsq + 1 + i];
+        }
+        atual->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
+
+        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
+        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
+        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmEsq);
+
+        free(atual); free(irmEsq); if(irmDir) free(irmDir); return;
+    }
+
+    // 3. MERGE ESQUERDA (O Enunciado exige tentar Esquerda primeiro na Concatenação)
+    if (irmEsq != NULL) {
         fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1);
     }
+    // 4. MERGE DIREITA (Se não for possível esquerda)
+    else if (irmDir != NULL) {
+        fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho);
+    }
     
-    free(atual); 
-    if(irmEsq) free(irmEsq); 
-    if(irmDir) free(irmDir);
+    free(atual); if(irmEsq) free(irmEsq); if(irmDir) free(irmDir);
 }
 
 // Une fisicamente duas páginas e rebaixa a chave separadora do pai
@@ -581,10 +607,10 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
         pai->Pr[i] = pai->Pr[i+1];
         pai->P[i+1] = pai->P[i+2];
     }
-    pai->C[pai->nroChaves - 1] = -1;
-    pai->Pr[pai->nroChaves - 1] = -1;
-    pai->P[pai->nroChaves] = -1;
     pai->nroChaves--;
+    pai->C[pai->nroChaves] = -1;
+    pai->Pr[pai->nroChaves] = -1;
+    pai->P[pai->nroChaves + 1] = -1;
 
     fseek(fileIndice, TAM_BTREE_CABECALHO + rrnEsq * TAM_NO, SEEK_SET); 
     escreverNo(fileIndice, esq);
@@ -621,36 +647,37 @@ bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *
     int idxCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
 
     if (idxCodEstacao != -1 && !valorEhNulo(pares[idxCodEstacao].valor)) {
-        // Cenário 1: Busca otimizada O(log n) via Árvore-B
-        int chaveBuscada = atoi(pares[idxCodEstacao].valor);
-        int rrnRaiz;
-        fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
-        fread(&rrnRaiz, sizeof(int), 1, fileIndice);
+            int chaveBuscada = atoi(pares[idxCodEstacao].valor);
+            int rrnRaiz; fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
-        int rrnResIndice, ponteiroResDados;
-        if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) {
-            fseek(fileDados, ponteiroResDados, SEEK_SET);
-            char removido;
-            fread(&removido, sizeof(char), 1, fileDados);
-            
-            if (removido == '0') {
-                // Remove fisicamente o nó do arquivo de dados e atualiza o encadeamento
+            int rrnResIndice, ponteiroResDados;
+            if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) {
                 fseek(fileDados, ponteiroResDados, SEEK_SET);
-                char flag = '1';
-                fwrite(&flag, sizeof(char), 1, fileDados);
-                fwrite(&topoDados, sizeof(int), 1, fileDados);
+                char removido; fread(&removido, sizeof(char), 1, fileDados);
                 
-                int rrnRemovido = (ponteiroResDados - TAM_CABECALHO) / TAM_REG;
-                topoDados = rrnRemovido;
-                
-                fseek(fileDados, 1, SEEK_SET);
-                fwrite(&topoDados, sizeof(int), 1, fileDados);
-
-                // Dispara a remoção de baixo nível na B-Tree
-                removerChaveIndice(fileIndice, chaveBuscada);
+                if (removido == '0') {
+                    // --- CORREÇÃO 1: FILTRAGEM COMPLETA ---
+                    int rrnAlvo = (ponteiroResDados - TAM_CABECALHO) / TAM_REG;
+                    
+                    // Valida se os outros filtros (nome, linha, etc) também batem no registro encontrado
+                    int rrnConfirmado = selectWhere(fileDados, NULL, pares, mPares, rrnAlvo, true, true);
+                    
+                    if (rrnConfirmado == rrnAlvo) { // Todos os filtros bateram! 
+                        fseek(fileDados, ponteiroResDados, SEEK_SET); 
+                        char flag = '1';
+                        fwrite(&flag, sizeof(char), 1, fileDados); 
+                        fwrite(&topoDados, sizeof(int), 1, fileDados);
+                        
+                        topoDados = rrnAlvo;
+                        fseek(fileDados, 1, SEEK_SET); 
+                        fwrite(&topoDados, sizeof(int), 1, fileDados);
+                        
+                        removerChaveIndice(fileIndice, chaveBuscada);
+                    }
+                    // Se não bateu os filtros, ignora. O registro não deve ser apagado!
+                }
             }
-        }
-    } else {
+        } else {
         // Cenário 2: Busca sequencial O(n) lendo diretamente no disco
         int rrn = -1;
         while (true) {
