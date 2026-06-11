@@ -221,7 +221,7 @@ int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares
     int numFiltros = popularParesPorCampo(pares, mPares, porCampo);
 
     if(porCampo[CAMPO_COD_ESTACAO] && fileIndice != NULL){
-        return selectWhereIndexado(fileDados, fileIndice, porCampo, numFiltros);
+        return selectWhereIndexado(fileDados, fileIndice, porCampo, numFiltros, true);
     }
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));
@@ -344,6 +344,30 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
         return false;
     }
 
+
+    FILE *fileIndice;
+    if(*valores[CAMPO_COD_ESTACAO].valor && arquivoIndice != NULL){
+        fileIndice = fopen(arquivoIndice, "rb+");
+        if(!fileIndice){
+            printf("Falha no processamento do arquivo.\n");
+            return false;
+        }
+
+        CampoValor *pares[8] = {NULL};
+        CampoValor *apenasCodEstacao = (CampoValor*) malloc(sizeof(CampoValor));
+        apenasCodEstacao->campo = valores[CAMPO_COD_ESTACAO].campo;
+        apenasCodEstacao->valor = valores[CAMPO_COD_ESTACAO].valor;
+        pares[0] = apenasCodEstacao;
+
+        int res = selectWhereIndexado(fileDados, fileIndice, pares, 1, false);
+        if(res > 0){
+            free(apenasCodEstacao);
+            fclose(fileDados);
+            fclose(fileIndice);
+            return true;
+        }
+    }
+
     char status;
     int topo;
     int proxRRN;
@@ -379,7 +403,6 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
         if (reg.tamNomeEstacao > 0 && !nomeEstacaoJaExiste(fileDados, reg.nomeEstacao, reg.tamNomeEstacao)) {
             nroEstacoes++;
         }
-
         // só incrementa os pares se a próxima estação for válida (não nula)
         if (reg.codProxEstacao != -1) {
             nroPares++;
@@ -430,6 +453,7 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
     if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
     if (reg.tamNomeLinha > 0) free(reg.nomeLinha);
 
+
     // caso haja algum erro durante a escrita do registro ou a atualização dos contadores
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
@@ -441,29 +465,15 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
     // lógica específica para o arquivo de índice: se ele existir, insere o par chave-ponteiro no índice
     // e trata a questão da consistência do arquivo de índice durante a escrita
     if (arquivoIndice != NULL) {
-        FILE *fileIndice = fopen(arquivoIndice, "rb+");
         if (!fileIndice) {
             ok = false;
         } else {
-            char inconsistente = '0';
-            if (fseek(fileIndice, 0, SEEK_SET) != 0 || fwrite(&inconsistente, sizeof(char), 1, fileIndice) != 1) {
-                ok = false;
-            } else if (insertIndice(fileIndice, reg.codEstacao, ponteiroDados) == ERRO_DE_INSERCAO) {
-                ok = false;
-            } else if (fseek(fileIndice, 0, SEEK_SET) != 0) {
-                ok = false;
-            } else {
-                inconsistente = '1';
-                if (fwrite(&inconsistente, sizeof(char), 1, fileIndice) != 1) ok = false;
-            }
+            insertIndice(fileIndice, reg.codEstacao, ponteiroDados);
             fclose(fileIndice);
         }
 
         if (!ok) printf("Falha no processamento do arquivo.\n");
     }
-
-    if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);
-    if (reg.tamNomeLinha > 0) free(reg.nomeLinha);
     return ok;
 }
 

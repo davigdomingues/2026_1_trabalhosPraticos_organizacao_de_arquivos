@@ -3,9 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <string.h>
 
-/* (sabor implementação?)
 static void limparNo(No *no) {
     no->removido = '0';
     no->proximo = -1;
@@ -19,7 +17,6 @@ static void limparNo(No *no) {
     }
     no->P[NRO_MAX_CHAVES] = -1;
 }
-*/
 
 No *incializarNo(){
     No *no = (No*) malloc(sizeof(No));
@@ -27,13 +24,7 @@ No *incializarNo(){
     int *Pr = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
     int *P = (int*) malloc(sizeof(int) * (NRO_MAX_CHAVES+1));
     
-    no->proximo = -1;
-    no->tipoNo = NO_NAO_INICIALIZADO;
-    no->nroChaves = 0;
-    memset(C, -1, sizeof(int) * NRO_MAX_CHAVES);
-    memset(Pr, -1, sizeof(int) * NRO_MAX_CHAVES);
-    memset(P, -1, sizeof(int) * (NRO_MAX_CHAVES+1));
-    no->removido = '0';
+    limparNo(no);
     return no;
 }
 
@@ -72,13 +63,13 @@ No *criarNo(FILE *fileIndice, int *novoRRN){
         int inicioNoRemovido = TAM_BTREE_CABECALHO + topo * TAM_NO;
 
         //lê o novo topo
-        int proximo;
+        int novoTopo;
         fseek(fileIndice, inicioNoRemovido+1, SEEK_SET); //+1 para pular a flag de removido
-        fread(&proximo, sizeof(int), 1, fileIndice);
+        fread(&novoTopo, sizeof(int), 1, fileIndice);
         
         //atualiza o topo da pilha de removidos no cabeçalho
         fseek(fileIndice, 5, SEEK_SET);
-        fwrite(&proximo, sizeof(int), 1, fileIndice);
+        fwrite(&novoTopo, sizeof(int), 1, fileIndice);
     }
     return incializarNo();
 }
@@ -141,9 +132,8 @@ bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir){
     //shifta todos os elementos maiores do que a chave para a direita
     while (i >= 0 && no->C[i] > chave) {
         no->C[i+1] = no->C[i];
-        no->P[i+1] = no->P[i];
-        // no->P[i+2] = no->P[i+1]; (será que não é assim?)
         no->Pr[i+1] = no->Pr[i];
+        no->P[i+2] = no->P[i+1]; //o filho a direita acompanha a chave
         i--;
     }
 
@@ -151,22 +141,78 @@ bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir){
     int posicaoInsercao = i + 1;
     no->C[posicaoInsercao] = chave;
     no->Pr[posicaoInsercao] = ponteiroDados;
-    no->P[posicaoInsercao] = filhoDir;
-    // no->P[posicaoInsercao+1] = filhoDir; (será que não é assim?)
+    no->P[posicaoInsercao+1] = filhoDir;
 
     no->nroChaves++;
     return true;
 }
 
-int comparaInt(const void *a, const void *b) {
-    int n1 = *(const int *)a;
-    int n2 = *(const int *)b;
-    return (n1 > n2) - (n1 < n2);
+typedef struct {
+    int chave;
+    int ptrDados;
+    int filhoDireito;
+} ElementoAux;
+
+int comparaElementos(const void *a, const void *b) {
+    ElementoAux *elemA = (ElementoAux *)a;
+    ElementoAux *elemB = (ElementoAux *)b;
+    return (elemA->chave - elemB->chave);
 }
 
-/* (ideia de implementação) */
-int distribuirOrdenado(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int filhoDirChaveNova){
-    return 0;
+int distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int ponteiroDadosChaveNova, int filhoDirChaveNova, int *ponteiroDadosChavePromovida){
+    ElementoAux itens[4];
+
+    for (int i = 0; i < 3; i++) {
+        itens[i].chave = no->C[i];
+        itens[i].ptrDados = no->Pr[i];
+        itens[i].filhoDireito = no->P[i + 1];
+    }
+
+    itens[3].chave = chaveNova;
+    itens[3].ptrDados = ponteiroDadosChaveNova;
+    itens[3].filhoDireito = filhoDirChaveNova;
+
+    if(itens[3].ptrDados == 177){
+       //printf(" ");
+    }
+
+    int ponteiroMaisEsquerda = no->P[0];
+
+    qsort(itens, 4, sizeof(ElementoAux), comparaElementos);
+
+    no->C[0] = itens[0].chave;
+    no->C[1] = itens[1].chave;
+    no->C[2] = -1;
+
+    no->Pr[0] = itens[0].ptrDados;
+    no->Pr[1] = itens[1].ptrDados;
+    no->Pr[2] = -1;
+
+    no->P[0] = ponteiroMaisEsquerda;
+    no->P[1] = itens[0].filhoDireito;
+    no->P[2] = itens[1].filhoDireito;
+    no->P[3] = -1;
+    no->nroChaves = 2;
+
+    novoNo->C[0] = itens[3].chave;
+    novoNo->C[1] = -1;
+    novoNo->C[2] = -1;
+
+    novoNo->Pr[0] = itens[3].ptrDados;
+    novoNo->Pr[1] = -1;
+    novoNo->Pr[2] = -1;
+
+    novoNo->P[0] = itens[2].filhoDireito; 
+    novoNo->P[1] = itens[3].filhoDireito;
+    novoNo->P[2] = -1;
+    novoNo->P[3] = -1;
+    
+    novoNo->nroChaves = 1;
+    novoNo->tipoNo = no->tipoNo;
+
+    *ponteiroDadosChavePromovida = itens[2].ptrDados;
+
+    return itens[2].chave;
 }
 
 void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {

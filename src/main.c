@@ -18,6 +18,104 @@
 #define TAM_ARQUIVO 100 // tamanho máximo para nome de arquivo
 #define MAX_PARES 8 // número máximo de pares
 
+
+bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEstacao){
+    fseek(fileDados, 17, SEEK_SET);
+
+    Registro *reg = (Registro*) malloc(sizeof(Registro));
+    if(!reg){
+        fclose(fileDados);
+        printf("Falha no processamento do arquivo.\n");
+        return true;
+    }
+
+    //cria um hashmap para depois obter, eficientemente, o nroEstacoes únicas
+    hashmap *mapEstacoes = hashmap_create();
+    //cria um hashmap para depois obter, eficientemente, o nroParesEstacoes únicas
+    hashmap *mapParesEstacoes = hashmap_create();
+
+    char removido;
+    while(fread(&removido, sizeof(char), 1, fileDados)){
+        if(removido == '1') {
+            fseek(fileDados, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
+            continue;
+        }
+
+        // garante estado limpo por iteração (evita usar ponteiros antigos quando o campo é nulo)
+        reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
+        reg->tamNomeLinha = 0; reg->nomeLinha   = "";
+
+        fseek(fileDados, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
+
+        //lê os campos do registro e armazena na struct
+        fread(&reg->codEstacao, sizeof(int), 1, fileDados);
+        fread(&reg->codLinha, sizeof(int), 1, fileDados);
+        fread(&reg->codProxEstacao, sizeof(int), 1, fileDados);
+        fread(&reg->distProxEstacao, sizeof(int), 1, fileDados);
+        fread(&reg->codLinhaIntegra, sizeof(int), 1, fileDados);
+        fread(&reg->codEstIntegra, sizeof(int), 1, fileDados);
+
+        fread(&reg->tamNomeEstacao, sizeof(int), 1, fileDados);
+        if(reg->tamNomeEstacao != 0){
+            char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
+            if (!nomeEstacao) break;
+            fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, fileDados);
+            nomeEstacao[reg->tamNomeEstacao] = '\0';
+            reg->nomeEstacao = nomeEstacao;
+        }
+
+        fread(&reg->tamNomeLinha, sizeof(int), 1, fileDados);
+        if(reg->tamNomeLinha != 0){
+            char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha ) + 1); // +1 para o caractere nulo
+            if (!nomeLinha) { 
+                if (reg->tamNomeEstacao > 0) 
+                    free(reg->nomeEstacao); 
+                break; 
+            }
+
+            fread(nomeLinha, sizeof(char), reg->tamNomeLinha, fileDados);
+            nomeLinha[reg->tamNomeLinha] = '\0';
+            reg->nomeLinha = nomeLinha;
+
+
+            //salva no hashmap com o nome da estação sendo a chave, para garantir unicidade
+            //o valor salvo não importa
+            hashmap_set(mapEstacoes, strdup(reg->nomeEstacao), reg->tamNomeEstacao+1, reg->codEstacao);
+
+            if(reg->codProxEstacao != -1){
+                int menor = (reg->codEstacao < reg->codProxEstacao) ? reg->codEstacao : reg->codProxEstacao;
+                int maior = (reg->codEstacao < reg->codProxEstacao) ? reg->codProxEstacao : reg->codEstacao;
+
+                char *par = (char*) malloc(sizeof(char) * 10);
+                //constrói uma string para representar o par unicamente
+                snprintf(par, 10, "%d-%d", menor, maior);
+
+                //salva o par no hashmap
+                //o valor salvo não importa
+                hashmap_set(mapParesEstacoes, par, 10, reg->codProxEstacao);
+            }
+        }
+
+        int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
+        if(tamRestante != 0) fseek(fileDados, tamRestante, SEEK_CUR); //pula os $
+
+        if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+        if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
+    }
+    *nroEstacoes = hashmap_size(mapEstacoes);
+    *nroParesEstacao = hashmap_size(mapParesEstacoes);
+
+    free(reg);
+
+    hashmap_iterate(mapEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapEstacoes);
+    hashmap_iterate(mapParesEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapParesEstacoes);
+
+    return true;
+}
+
+
 /** @brief lê os pares campo-valor da entrada padrão e armazená-los em um array de CampoValor
  * 
  * @param pares array de CampoValor a ser preenchido
@@ -94,7 +192,10 @@ int main(){
         case 1: // CREATE
             arquivoDados = lerNomeArquivo();
             arquivoSaida   = lerNomeArquivo();
-            if (!arquivoDados || !arquivoSaida) return -1;
+            if (!arquivoDados || !arquivoSaida){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             ok = create(arquivoDados, arquivoSaida);
             if(ok) BinarioNaTela(arquivoSaida);
@@ -107,7 +208,10 @@ int main(){
             break;
         case 3: // SELECT ALL WHERE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             int nBuscas = 0;
             scanf("%d", &nBuscas);
@@ -127,7 +231,10 @@ int main(){
             break;
         case 4: // DELETE WHERE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             int nRemocoes = 0; // número de operações de remoção a serem realizadas
             scanf("%d", &nRemocoes);
@@ -154,7 +261,10 @@ int main(){
             break;
         case 5: // INSERT
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             int nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
@@ -189,7 +299,10 @@ int main(){
             break;
         case 6: // UPDATE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             int nAtualizacoes = 0; // número de operações de atualização a serem realizadas
             scanf("%d", &nAtualizacoes);
@@ -242,10 +355,16 @@ int main(){
             break;
         case 8: //SELECT WHERE COM INDEXAÇÃO
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             arquivoIndice = lerNomeArquivo();
-            if (!arquivoIndice) return -1;
+            if (!arquivoIndice){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             nBuscas = 0;
             scanf("%d", &nBuscas);
@@ -265,15 +384,20 @@ int main(){
             break;
         case 9: // INSERT COM INDEXAÇÃO
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             arquivoIndice = lerNomeArquivo();
-            if (!arquivoIndice) return -1;
+            if (!arquivoIndice){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
+            
 
             nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
-
-            ok = true; // se houver falha em alguma das inserções, ok = false e as próximas inserções não são tentadas
 
             // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
             for (int i = 0; i < nInsercoes; i++) {
@@ -295,21 +419,35 @@ int main(){
                     ScanQuoteString(valores[k].valor);
                 }
 
-                // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
-                if (ok && !insert(arquivoDados, arquivoIndice, valores, MAX_PARES)) ok = false;
+                bool sucesso = insert(arquivoDados, arquivoIndice, valores, MAX_PARES);
+                if(!sucesso) return 0;
             }
 
-            if (ok) {
-                BinarioNaTela(arquivoDados);
-                BinarioNaTela(arquivoIndice);
-            }
+            FILE *fileDados = fopen(arquivoDados, "r+b");
+            int nroEstacoes;
+            int nroParesEstacoes;
+            calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
+
+            fseek(fileDados, 9, SEEK_SET);
+            fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
+            fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
+            fclose(fileDados);
+
+            BinarioNaTela(arquivoDados);
+            BinarioNaTela(arquivoIndice);
             break;
         case 10: // DELETE WHERE COM INDEXAÇÃO
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
             
             arquivoIndice = lerNomeArquivo();
-            if (!arquivoIndice) return -1;
+            if (!arquivoIndice){
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
 
             int nRemocoesIdx = 0;
             scanf("%d", &nRemocoesIdx);

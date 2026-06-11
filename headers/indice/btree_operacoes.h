@@ -15,10 +15,10 @@
 #define CHAVE_NAO_ENCONTRADA 0
 #define UNDERFLOW_PENDENTE 2
 
-int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros);
+int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print);
 bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados);
 int insertIndice(FILE *fileIndice, int chave, int ponteiroDados);
-int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, int *chavePromocao, int *filhoDirPromocao);
+int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, int *chaveASerPromovida, int *ponteiroDadosChaveASerPromovida, int *filhoDirChaveASerPromovida);
 
 /**
  * @brief cria a árvore-B de índice a partir do arquivo binário de dados.

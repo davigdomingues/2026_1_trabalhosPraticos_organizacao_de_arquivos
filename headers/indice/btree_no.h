@@ -27,7 +27,7 @@ bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
 bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir);
 bool escreverNo(FILE *file, No *no);
 No *criarNo(FILE *fileIndice, int *novoRRN);
-int distribuirOrdenado(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int filhoDirChaveNova);
+int distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int ponteiroDadosChaveNova, int filhoDirChaveNova, int *ponteiroDadosChavePromovida);
 void apagarNo(FILE *fileIndice, int rrnNoParaApagar);
 
 #endif
