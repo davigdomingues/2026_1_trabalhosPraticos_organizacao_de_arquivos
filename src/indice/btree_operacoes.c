@@ -360,7 +360,6 @@ bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
     return true;
 }
 
-// Função driver que inicia a cadeia de remoção e lida com reduções de altura na raiz
 bool removerChaveIndice(FILE *fileIndice, int chave) {
     int rrnRaiz;
     fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
@@ -373,16 +372,6 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
     if (status == CHAVE_NAO_ENCONTRADA) {
         return false; 
     }
-
-    /*
-    // nroNos decrementa a cada sucesso de remoção, mesmo que seja apenas lógica
-    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-    int nroNos;
-    fread(&nroNos, sizeof(int), 1, fileIndice);
-    // nroNos--;
-    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-    fwrite(&nroNos, sizeof(int), 1, fileIndice);
-    */
 
     // esvaziamento de raiz tratado somente após a remoção recursiva para evitar casos de underflow pendente na raiz
     No *raiz = incializarNo();
@@ -421,7 +410,6 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
     return true; 
 }
 
-// Remoção lógica recursiva descendente e propagação de underflow ascendente
 int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
     if (rrnAtual == -1) return CHAVE_NAO_ENCONTRADA;
 
@@ -503,78 +491,132 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
     return SUCESSO;
 }
 
-// Analisa os irmãos adjacentes para executar empréstimo (redistribuição) ou fusão (merge)
 void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho) {
-    int rrnAtual = pai->P[indicePonteiroFilho];
-    No *atual = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); lerNo(fileIndice, atual);
+    // Carrega o nó em underflow e seus irmãos adjacentes (se existirem)
+    int rrnAtual = pai->P[indicePonteiroFilho]; // RRN do nó que está em underflow
+    No *atual = incializarNo(); 
+    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); 
+    lerNo(fileIndice, atual); // nó em underflow
     
     No *irmEsq = NULL; int rrnIrmEsq = -1;
     if (indicePonteiroFilho > 0) {
-        rrnIrmEsq = pai->P[indicePonteiroFilho - 1]; irmEsq = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); lerNo(fileIndice, irmEsq);
+        rrnIrmEsq = pai->P[indicePonteiroFilho - 1]; 
+        irmEsq = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); 
+        lerNo(fileIndice, irmEsq);
     }
 
-    No *irmDir = NULL; int rrnIrmDir = -1;
+    No *irmDir = NULL; // pode ser necessário para empréstimo ou merge, mas só é carregado se existir
+    int rrnIrmDir = -1;
+
+    // Carrega o irmão direito somente se existir, para evitar leituras desnecessárias
     if (indicePonteiroFilho < pai->nroChaves) {
-        rrnIrmDir = pai->P[indicePonteiroFilho + 1]; irmDir = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); lerNo(fileIndice, irmDir);
+        rrnIrmDir = pai->P[indicePonteiroFilho + 1]; 
+        irmDir = incializarNo(); 
+        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); 
+        lerNo(fileIndice, irmDir);
     }
 
-    // 1. Empréstimo da DIREITA
+    // Estrutura de decisão para tratamento de underflow:
+    // 1: Empréstimo na direita (Se o irmão direito tiver chaves suficientes para emprestar)
     if (irmDir != NULL && irmDir->nroChaves > MIN_CHAVES) {
         int chavesTotal = 1 + irmDir->nroChaves;
         int chavesEsq = chavesTotal / 2; // Garante a regra: "nó mais à esquerda deverá conter uma chave a mais"
         int chavesDir = chavesTotal - chavesEsq - 1;
 
-        int bufC[4], bufPr[4], bufP[5];
+        int bufC[4], bufPr[4], bufP[5]; // buffers temporários para reorganizar as chaves e ponteiros durante o empréstimo
         bufC[0] = pai->C[indicePonteiroFilho]; bufPr[0] = pai->Pr[indicePonteiroFilho]; bufP[0] = atual->P[0];
+
+        // Preenche os buffers com as chaves e ponteiros do irmão direito, deslocando-os para a direita para abrir espaço para a chave promovida do pai
         for(int i = 0; i < irmDir->nroChaves; i++) {
-            bufC[i+1] = irmDir->C[i]; bufPr[i+1] = irmDir->Pr[i]; bufP[i+1] = irmDir->P[i];
+            bufC[i+1] = irmDir->C[i]; 
+            bufPr[i+1] = irmDir->Pr[i]; 
+            bufP[i+1] = irmDir->P[i];
         }
+
         bufP[irmDir->nroChaves + 1] = irmDir->P[irmDir->nroChaves];
 
+        // Reorganiza o nó atual (em underflow), o irmão direito e o pai de acordo com a redistribuição das chaves
         atual->nroChaves = chavesEsq;
-        for(int i = 0; i < chavesEsq; i++) { atual->C[i] = bufC[i]; atual->Pr[i] = bufPr[i]; atual->P[i] = bufP[i]; }
+        for(int i = 0; i < chavesEsq; i++) { 
+            atual->C[i] = bufC[i]; 
+            atual->Pr[i] = bufPr[i]; 
+            atual->P[i] = bufP[i]; 
+        }
         atual->P[chavesEsq] = bufP[chavesEsq];
 
         pai->C[indicePonteiroFilho] = bufC[chavesEsq]; pai->Pr[indicePonteiroFilho] = bufPr[chavesEsq];
 
+        // O irmão direito recebe as chaves restantes após a chave promovida para o pai
         irmDir->nroChaves = chavesDir;
         for(int i = 0; i < chavesDir; i++) {
-            irmDir->C[i] = bufC[chavesEsq + 1 + i]; irmDir->Pr[i] = bufPr[chavesEsq + 1 + i]; irmDir->P[i] = bufP[chavesEsq + 1 + i];
+            irmDir->C[i] = bufC[chavesEsq + 1 + i]; 
+            irmDir->Pr[i] = bufPr[chavesEsq + 1 + i]; 
+            irmDir->P[i] = bufP[chavesEsq + 1 + i];
         }
+    
+        // O ponteiro mais à direita do irmão direito é atualizado para o que estava originalmente no irmão direito, deslocado para a direita
         irmDir->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
-        for(int i = chavesDir; i < 3; i++) { irmDir->C[i] = -1; irmDir->Pr[i] = -1; irmDir->P[i+1] = -1; }
+        for(int i = chavesDir; i < 3; i++) { 
+            irmDir->C[i] = -1; 
+            irmDir->Pr[i] = -1; 
+            irmDir->P[i+1] = -1; 
+        }
 
+        // Escreve as alterações de volta no arquivo para o pai, o nó em underflow e o irmão direito
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmDir);
 
-        free(atual); if(irmEsq) free(irmEsq); free(irmDir); return;
+        free(atual); 
+        
+        if(irmEsq) free(irmEsq); 
+        free(irmDir); 
+        
+        return;
     }
 
-    // 2. Empréstimo da ESQUERDA
+    // 2: Empréstimo na esquerda (Se o irmão esquerdo tiver chaves suficientes para emprestar)
     if (irmEsq != NULL && irmEsq->nroChaves > MIN_CHAVES) {
         int chavesTotal = irmEsq->nroChaves + 1;
         int chavesEsq = chavesTotal / 2;
         int chavesDir = chavesTotal - chavesEsq - 1;
 
         int bufC[4], bufPr[4], bufP[5];
-        for(int i = 0; i < irmEsq->nroChaves; i++) {
-            bufC[i] = irmEsq->C[i]; bufPr[i] = irmEsq->Pr[i]; bufP[i] = irmEsq->P[i];
+        for(int i = 0; i < irmEsq->nroChaves; i++) { // Preenche os buffers com as chaves e ponteiros do irmão esquerdo, mantendo a ordem original
+            bufC[i] = irmEsq->C[i]; 
+            bufPr[i] = irmEsq->Pr[i]; 
+            bufP[i] = irmEsq->P[i];
         }
+
+        // O ponteiro mais à direita do irmão esquerdo é movido para o nó em underflow, e a chave do pai que separa os dois irmãos é promovida para o nó em underflow
         bufP[irmEsq->nroChaves] = irmEsq->P[irmEsq->nroChaves];
         bufC[irmEsq->nroChaves] = pai->C[indicePonteiroFilho - 1]; bufPr[irmEsq->nroChaves] = pai->Pr[indicePonteiroFilho - 1];
         bufP[irmEsq->nroChaves + 1] = atual->P[0];
 
+        // Reorganiza o irmão esquerdo, o nó em underflow e o pai de acordo com a redistribuição das chaves
         irmEsq->nroChaves = chavesEsq;
-        for(int i = 0; i < chavesEsq; i++) { irmEsq->C[i] = bufC[i]; irmEsq->Pr[i] = bufPr[i]; irmEsq->P[i] = bufP[i]; }
+        for(int i = 0; i < chavesEsq; i++) { 
+            irmEsq->C[i] = bufC[i]; 
+            irmEsq->Pr[i] = bufPr[i]; 
+            irmEsq->P[i] = bufP[i]; 
+        }
+
+        // O ponteiro mais à direita do irmão esquerdo é atualizado para o que estava originalmente no irmão esquerdo, deslocado para a direita
         irmEsq->P[chavesEsq] = bufP[chavesEsq];
-        for(int i = chavesEsq; i < 3; i++) { irmEsq->C[i] = -1; irmEsq->Pr[i] = -1; irmEsq->P[i+1] = -1; }
+        for(int i = chavesEsq; i < 3; i++) { 
+            irmEsq->C[i] = -1; 
+            irmEsq->Pr[i] = -1; 
+            irmEsq->P[i+1] = -1; 
+        }
 
         pai->C[indicePonteiroFilho - 1] = bufC[chavesEsq]; pai->Pr[indicePonteiroFilho - 1] = bufPr[chavesEsq];
 
+        // O nó em underflow recebe as chaves restantes após a chave promovida para o pai
         atual->nroChaves = chavesDir;
         for(int i = 0; i < chavesDir; i++) {
-            atual->C[i] = bufC[chavesEsq + 1 + i]; atual->Pr[i] = bufPr[chavesEsq + 1 + i]; atual->P[i] = bufP[chavesEsq + 1 + i];
+            atual->C[i] = bufC[chavesEsq + 1 + i]; 
+            atual->Pr[i] = bufPr[chavesEsq + 1 + i]; 
+            atual->P[i] = bufP[chavesEsq + 1 + i];
         }
         atual->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
 
@@ -582,27 +624,33 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmEsq);
 
-        free(atual); free(irmEsq); if(irmDir) free(irmDir); return;
+        free(atual); 
+        free(irmEsq); 
+        if(irmDir) free(irmDir); 
+        
+        return;
     }
 
-    // 3. MERGE ESQUERDA (O Enunciado exige tentar Esquerda primeiro na Concatenação)
-    if (irmEsq != NULL) {
+    // 3: Merge na esquerda (O Enunciado exige tentar Esquerda primeiro na Concatenação)
+    if (irmEsq != NULL)
         fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1);
-    }
-    // 4. MERGE DIREITA (Se não for possível esquerda)
-    else if (irmDir != NULL) {
+
+    // 4: Merge na direita (Se não for possível na esquerda)
+    else if (irmDir != NULL)
         fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho);
-    }
     
-    free(atual); if(irmEsq) free(irmEsq); if(irmDir) free(irmDir);
+    free(atual); 
+    if(irmEsq) free(irmEsq); 
+    if(irmDir) free(irmDir);
 }
 
-// Une fisicamente duas páginas e rebaixa a chave separadora do pai
 void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrnDir, int rrnPai, int indiceChavePai) {
+    // A chave do pai que separa os dois nós é movida para o nó da esquerda, e as chaves do nó da direita são anexadas à direita do nó da esquerda
     esq->C[esq->nroChaves] = pai->C[indiceChavePai];
     esq->Pr[esq->nroChaves] = pai->Pr[indiceChavePai];
     esq->nroChaves++;
 
+    // Anexa as chaves do nó da direita à direita do nó da esquerda, mantendo a ordem original
     for (int i = 0; i < dir->nroChaves; i++) {
         esq->C[esq->nroChaves + i] = dir->C[i];
         esq->Pr[esq->nroChaves + i] = dir->Pr[i];
@@ -611,23 +659,23 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     esq->P[esq->nroChaves + dir->nroChaves] = dir->P[dir->nroChaves];
     esq->nroChaves += dir->nroChaves;
 
+    // Após o merge, a chave que separava os dois nós no pai é removida, e os ponteiros são ajustados para fechar o espaço deixado pelo nó da direita que foi fundido
     for (int i = indiceChavePai; i < pai->nroChaves - 1; i++) {
         pai->C[i] = pai->C[i+1];
         pai->Pr[i] = pai->Pr[i+1];
         pai->P[i+1] = pai->P[i+2];
     }
+
+    // O número de chaves do pai é decrementado, e os campos restantes são limpos para manter a consistência dos dados
     pai->nroChaves--;
     pai->C[pai->nroChaves] = -1;
     pai->Pr[pai->nroChaves] = -1;
     pai->P[pai->nroChaves + 1] = -1;
 
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnEsq * TAM_NO, SEEK_SET); 
-    escreverNo(fileIndice, esq);
+    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnEsq * TAM_NO, SEEK_SET); escreverNo(fileIndice, esq);
+    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
     
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); 
-    escreverNo(fileIndice, pai);
-    
-    apagarNo(fileIndice, rrnDir);
+    apagarNo(fileIndice, rrnDir); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
 }
 
 bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *pares, int mPares) {
@@ -656,48 +704,46 @@ bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *
     int idxCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
 
     if (idxCodEstacao != -1 && !valorEhNulo(pares[idxCodEstacao].valor)) {
-            int chaveBuscada = atoi(pares[idxCodEstacao].valor);
-            int rrnRaiz; fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); fread(&rrnRaiz, sizeof(int), 1, fileIndice);
+        // Cenário 1: Busca O(log n) utilizando o índice da Árvore-B, seguida de validação completa dos filtros no registro encontrado antes de marcar como removido
+        int chaveBuscada = atoi(pares[idxCodEstacao].valor);
+        int rrnRaiz; fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
-            int rrnResIndice, ponteiroResDados;
-            if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) {
-                fseek(fileDados, ponteiroResDados, SEEK_SET);
-                char removido; fread(&removido, sizeof(char), 1, fileDados);
+        int rrnResIndice, ponteiroResDados;
+        if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) { // Encontrou a chave no índice, agora valida os outros filtros no registro correspondente antes de marcar como removido
+            fseek(fileDados, ponteiroResDados, SEEK_SET);
+            char removido; fread(&removido, sizeof(char), 1, fileDados);
                 
-                if (removido == '0') {
-                    // --- CORREÇÃO 1: FILTRAGEM COMPLETA ---
-                    int rrnAlvo = (ponteiroResDados - TAM_CABECALHO) / TAM_REG;
+            if (removido == '0') { // Registro encontrado e não removido
+                int rrnAlvo = (ponteiroResDados - TAM_CABECALHO) / TAM_REG;
                     
-                    // Valida se os outros filtros (nome, linha, etc) também batem no registro encontrado
-                    int rrnConfirmado = selectWhere(fileDados, NULL, pares, mPares, rrnAlvo, true, true);
+                // Valida se os outros filtros (nome, linha, etc) também batem no registro encontrado
+                int rrnConfirmado = selectWhere(fileDados, NULL, pares, mPares, rrnAlvo, true, true);
                     
-                    if (rrnConfirmado == rrnAlvo) { // Todos os filtros bateram! 
-                        fseek(fileDados, ponteiroResDados, SEEK_SET); 
-                        char flag = '1';
-                        fwrite(&flag, sizeof(char), 1, fileDados); 
-                        fwrite(&topoDados, sizeof(int), 1, fileDados);
+                if (rrnConfirmado == rrnAlvo) { // Todos os filtros batem, pode-se marcar como removido
+                    fseek(fileDados, ponteiroResDados, SEEK_SET); 
+                    char flag = '1'; // Marca como removido
+                    fwrite(&flag, sizeof(char), 1, fileDados); 
+                    fwrite(&topoDados, sizeof(int), 1, fileDados);
                         
-                        topoDados = rrnAlvo;
-                        fseek(fileDados, 1, SEEK_SET); 
-                        fwrite(&topoDados, sizeof(int), 1, fileDados);
+                    topoDados = rrnAlvo;
+                    fseek(fileDados, 1, SEEK_SET); 
+                    fwrite(&topoDados, sizeof(int), 1, fileDados);
                         
-                        removerChaveIndice(fileIndice, chaveBuscada);
-                    }
-                    // Se não bateu os filtros, ignora. O registro não deve ser apagado!
+                    removerChaveIndice(fileIndice, chaveBuscada);
                 }
             }
-        } else {
+        }
+    } else {
         // Cenário 2: Busca sequencial O(n) lendo diretamente no disco
         int rrn = -1;
         while (true) {
-            // Passamos NULL para o índice aqui forçando o full-scan no selectWhere
+            // Passamos NULL para o índice, forçando o "full-scan" no selectWhere
             rrn = selectWhere(fileDados, NULL, pares, mPares, rrn + 1, true, true);
             if (rrn < 0) break;
 
             long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG;
             
-            // Lê a chave (codEstacao) da estrutura do registro antes de marcar como removido
-            // Pula: flag removido (1 byte) + proxRRN (4 bytes)
+            // Lê a chave (codEstacao) da estrutura do registro antes de marcar como removido e pula caso flag removido (1 byte) + proxRRN (4 bytes)
             fseek(fileDados, inicioRegistro + 5, SEEK_SET); 
             int chaveParaRemover;
             if (fread(&chaveParaRemover, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
@@ -705,22 +751,31 @@ bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *
             // Marca o registro como removido
             fseek(fileDados, inicioRegistro, SEEK_SET);
             char flag = '1';
-            if (fwrite(&flag, sizeof(char), 1, fileDados) != 1) { ok = false; break; }
-            if (fwrite(&topoDados, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
+            if (fwrite(&flag, sizeof(char), 1, fileDados) != 1) { 
+                ok = false; 
+                break; 
+            }
+
+            if (fwrite(&topoDados, sizeof(int), 1, fileDados) != 1) { 
+                ok = false; 
+                break; 
+            }
             
             topoDados = rrn;
 
             // Remove a chave resgatada da Árvore-B
             if (!removerChaveIndice(fileIndice, chaveParaRemover)) {
-                ok = false; break;
+                ok = false; 
+                break;
             }
         }
-        if (ok) {
+        if (ok) { // Após a remoção lógica de todos os registros que batem com os filtros, atualiza o topo da lista de removidos no arquivo de dados para apontar para o primeiro registro logicamente removido encontrado durante o processo
             fseek(fileDados, 1, SEEK_SET);
             fwrite(&topoDados, sizeof(int), 1, fileDados);
         }
     }
 
+    // Atualização dos dados persistentes
     recalcularContadores(fileDados);
 
     atualizarStatus(fileDados, '1', true);
