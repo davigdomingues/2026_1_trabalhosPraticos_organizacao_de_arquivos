@@ -77,12 +77,7 @@ void ScanQuoteString(char *str) {
                            // aspas! Fazer leitura normal %s então, pois deve
                            // ser algum inteiro ou algo assim...
         str[0] = R;
-        int i = 1;
-        
-        while ((R = getchar()) != EOF && !isspace(R)) {
-            str[i++] = R;
-        }
-        str[i] = '\0';
+        scanf("%s", &str[1]);
     } else { // EOF
         strcpy(str, "");
     }

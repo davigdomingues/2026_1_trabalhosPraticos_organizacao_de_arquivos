@@ -416,7 +416,10 @@ int main(){
                 // se o valor for nulo, salva como string vazia
                 for (int k = 0; k < MAX_PARES; k++) {
                     valores[k].valor = valoresStr[k];
-                    ScanQuoteString(valores[k].valor);
+
+                    int n;
+                    if(scanf("%d", &n)) snprintf(valores[k].valor, sizeof(valores[k].valor), "%d", n);
+                    else ScanQuoteString(valores[k].valor);
                 }
 
                 bool sucesso = insert(arquivoDados, arquivoIndice, valores, MAX_PARES);
