@@ -106,7 +106,7 @@ bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, 
     return true;
 }
 
-No *split(FILE *fileIndice, No *no, int chavePromovida, int ponteiroDadosChavePromovida, int filhoDirChavePromovida, int *chaveASerPromovida, int *ponteiroDadosChaveASerPromovida, int *filhoDirChaveASerPromovida){
+No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *promoPraCima){
     int rrnNovoNo;
     No *novoNo = criarNo(fileIndice, &rrnNovoNo);
 
@@ -119,22 +119,19 @@ No *split(FILE *fileIndice, No *no, int chavePromovida, int ponteiroDadosChavePr
         novoNo->tipoNo = no->tipoNo; 
     }
 
-    int chaveMeio = distribuirUniforme(fileIndice, no, novoNo, chavePromovida, ponteiroDadosChavePromovida, filhoDirChavePromovida, ponteiroDadosChaveASerPromovida);
-    *chaveASerPromovida = chaveMeio;
-    *filhoDirChaveASerPromovida = rrnNovoNo;
-
+    distribuirUniforme(fileIndice, no, novoNo, rrnNovoNo, overflowElem, promoPraCima);
     return novoNo;
 }
 
-void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, int chavePromocao, int ponteiroDadosPromocao, int filhoDirPromocao){
+void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBaixo){
     int rrnNovaRaiz;
     No *novaRaiz = criarNo(fileIndice, &rrnNovaRaiz);
 
     novaRaiz->nroChaves = 1;
-    novaRaiz->C[0] = chavePromocao;
-    novaRaiz->Pr[0] = ponteiroDadosPromocao;
+    novaRaiz->C[0] = promoDeBaixo.chave;
+    novaRaiz->Pr[0] = promoDeBaixo.ptrDados;
     novaRaiz->P[0] = rrnRaizAtual;          //filho a esquerda é a raiz antiga
-    novaRaiz->P[1] = filhoDirPromocao; //filho a direita é o nó criado no split
+    novaRaiz->P[1] = promoDeBaixo.filhoDir; //filho a direita é o nó criado no split
     novaRaiz->tipoNo = NO_RAIZ;
 
     //atualiza o cabeçalho do arquivo para apontar para o RRN da nova raiz
@@ -164,7 +161,7 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, int chavePromocao, int po
     free(novaRaiz);
 }
 
-int insertIndice(FILE *fileIndice, int chave, int ponteiroDados){
+int insertIndice(FILE *fileIndice, int chave, int ptrDados){
     char inconsistente = '0';
     fseek(fileIndice, 0, SEEK_SET);
     fwrite(&inconsistente, sizeof(char), 1, fileIndice);
@@ -172,11 +169,9 @@ int insertIndice(FILE *fileIndice, int chave, int ponteiroDados){
     int rrnRaiz;
     fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
-    int chavePromocao;
-    int ponteiroDadosChavePromocao;
-    int filhoDirPromocao;
-    int res = insertIndiceRec(fileIndice, chave, ponteiroDados, rrnRaiz, &chavePromocao, &ponteiroDadosChavePromocao, &filhoDirPromocao);
-    if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, chavePromocao, ponteiroDadosChavePromocao, filhoDirPromocao);
+    ElementoIndice promoDeBaixo;
+    int res = insertIndiceRec(fileIndice, chave, ptrDados, rrnRaiz, &promoDeBaixo);
+    if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, promoDeBaixo);
 
     //atualiza o status de consistência
     fseek(fileIndice, 0, SEEK_SET);
@@ -185,11 +180,11 @@ int insertIndice(FILE *fileIndice, int chave, int ponteiroDados){
     return 1;
 }
 
-int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, int *chaveASerPromovida, int *ponteiroDadosChaveASerPromovida, int *filhoDirChaveASerPromovida){
+int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, ElementoIndice *promoPraCima){
     if(rrnNoAtual == -1){
-        *chaveASerPromovida = chave;
-        *ponteiroDadosChaveASerPromovida = ponteiroDados;
-        *filhoDirChaveASerPromovida = -1;
+        promoPraCima->chave = chave;
+        promoPraCima->ptrDados = ptrDados;
+        promoPraCima->filhoDir = -1;
         return PROMOCAO;
     }
     int inicioNo = TAM_BTREE_CABECALHO + rrnNoAtual * TAM_NO;
@@ -203,26 +198,24 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtu
     bool encontrou = encontrarChave(no, chave, &subArvore, &dummy);
     if(encontrou) return ERRO_DE_INSERCAO;
 
-    int chavePromovida;
-    int filhoDirPromovido;
-    int ponteiroDadosChavePromovida;
-    int res = insertIndiceRec(fileIndice, chave, ponteiroDados, subArvore, &chavePromovida, &ponteiroDadosChavePromovida, &filhoDirPromovido);
+    ElementoIndice promoDeBaixo;
+    int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo);
 
     if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) return res;
     else if (no->nroChaves < NRO_MAX_CHAVES){
-        insereOrdenado(no, chavePromovida, ponteiroDadosChavePromovida, filhoDirPromovido);
+        insereOrdenado(no, promoDeBaixo);
 
         fseek(fileIndice, inicioNo, SEEK_SET);
         escreverNo(fileIndice, no);
         return SEM_PROMOCAO;
     } else {
 
-        No *novoNo = split(fileIndice, no, chavePromovida, ponteiroDadosChavePromovida,filhoDirPromovido, chaveASerPromovida, ponteiroDadosChaveASerPromovida, filhoDirChaveASerPromovida);
+        No *novoNo = split(fileIndice, no, promoDeBaixo, promoPraCima);
 
         fseek(fileIndice, inicioNo, SEEK_SET);
         escreverNo(fileIndice, no);
 
-        int inicioNovoNo = TAM_BTREE_CABECALHO + *filhoDirChaveASerPromovida * TAM_NO;
+        int inicioNovoNo = TAM_BTREE_CABECALHO + promoPraCima->filhoDir * TAM_NO;
         fseek(fileIndice, inicioNovoNo, SEEK_SET);
         escreverNo(fileIndice, novoNo);
 

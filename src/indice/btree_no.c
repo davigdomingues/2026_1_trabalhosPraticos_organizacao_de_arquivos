@@ -125,12 +125,12 @@ bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados){
 }
 
 
-bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir){
+bool insereOrdenado(No *no, ElementoIndice elem){
     if(no->nroChaves >= NRO_MAX_CHAVES) return false;
 
     int i = no->nroChaves - 1;
     //shifta todos os elementos maiores do que a chave para a direita
-    while (i >= 0 && no->C[i] > chave) {
+    while (i >= 0 && no->C[i] > elem.chave) {
         no->C[i+1] = no->C[i];
         no->Pr[i+1] = no->Pr[i];
         no->P[i+2] = no->P[i+1]; //o filho a direita acompanha a chave
@@ -139,80 +139,67 @@ bool insereOrdenado(No *no, int chave, int ponteiroDados, int filhoDir){
 
     //insere na posição correta
     int posicaoInsercao = i + 1;
-    no->C[posicaoInsercao] = chave;
-    no->Pr[posicaoInsercao] = ponteiroDados;
-    no->P[posicaoInsercao+1] = filhoDir;
+    no->C[posicaoInsercao] = elem.chave;
+    no->Pr[posicaoInsercao] = elem.ptrDados;
+    no->P[posicaoInsercao+1] = elem.filhoDir;
 
     no->nroChaves++;
     return true;
 }
 
-typedef struct {
-    int chave;
-    int ptrDados;
-    int filhoDireito;
-} ElementoAux;
-
-int comparaElementos(const void *a, const void *b) {
-    ElementoAux *elemA = (ElementoAux *)a;
-    ElementoAux *elemB = (ElementoAux *)b;
-    return (elemA->chave - elemB->chave);
+void insertionSort(ElementoIndice arr[], int tam) {
+    for (int i = 1; i < tam; i++) {
+        ElementoIndice chaveAtual = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j].chave > chaveAtual.chave) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = chaveAtual;
+    }
 }
 
-int distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int chaveNova, int ponteiroDadosChaveNova, int filhoDirChaveNova, int *ponteiroDadosChavePromovida){
-    ElementoAux itens[4];
+void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima){
+    ElementoIndice elems[4];
 
-    for (int i = 0; i < 3; i++) {
-        itens[i].chave = no->C[i];
-        itens[i].ptrDados = no->Pr[i];
-        itens[i].filhoDireito = no->P[i + 1];
-    }
-
-    itens[3].chave = chaveNova;
-    itens[3].ptrDados = ponteiroDadosChaveNova;
-    itens[3].filhoDireito = filhoDirChaveNova;
-
-    if(itens[3].ptrDados == 177){
-       //printf(" ");
-    }
+    elems[0] = (ElementoIndice){no->C[0], no->Pr[0], no->P[1]};
+    elems[1] = (ElementoIndice){no->C[1], no->Pr[1], no->P[2]};
+    elems[2] = (ElementoIndice){no->C[2], no->Pr[2], no->P[3]};
+    elems[3] = overflowElem;
 
     int ponteiroMaisEsquerda = no->P[0];
 
-    qsort(itens, 4, sizeof(ElementoAux), comparaElementos);
+    insertionSort(elems, 4);
 
-    no->C[0] = itens[0].chave;
-    no->C[1] = itens[1].chave;
+    no->C[0] = elems[0].chave;
+    no->Pr[0] = elems[0].ptrDados;
+    no->P[1] = elems[0].filhoDir;
+
+    no->C[1] = elems[1].chave;
+    no->Pr[1] = elems[1].ptrDados;
+    no->P[2] = elems[1].filhoDir;
+
     no->C[2] = -1;
-
-    no->Pr[0] = itens[0].ptrDados;
-    no->Pr[1] = itens[1].ptrDados;
     no->Pr[2] = -1;
-
-    no->P[0] = ponteiroMaisEsquerda;
-    no->P[1] = itens[0].filhoDireito;
-    no->P[2] = itens[1].filhoDireito;
     no->P[3] = -1;
+    no->P[0] = ponteiroMaisEsquerda;
     no->nroChaves = 2;
 
-    novoNo->C[0] = itens[3].chave;
-    novoNo->C[1] = -1;
-    novoNo->C[2] = -1;
+    promoPraCima->chave = elems[2].chave;
+    promoPraCima->ptrDados = elems[2].ptrDados;
+    promoPraCima->filhoDir = rrnNovoNo;
 
-    novoNo->Pr[0] = itens[3].ptrDados;
-    novoNo->Pr[1] = -1;
-    novoNo->Pr[2] = -1;
+    novoNo->C[0] = elems[3].chave;
+    novoNo->Pr[0]= elems[3].ptrDados;
+    novoNo->P[0] = elems[2].filhoDir;
+    novoNo->P[1] = elems[3].filhoDir;
 
-    novoNo->P[0] = itens[2].filhoDireito; 
-    novoNo->P[1] = itens[3].filhoDireito;
-    novoNo->P[2] = -1;
-    novoNo->P[3] = -1;
+    novoNo->C[1] = -1; novoNo->C[2]  = -1;
+    novoNo->Pr[1] = -1; novoNo->Pr[2] = -1;
+    novoNo->P[2] = -1; novoNo->P[3]  = -1;
     
     novoNo->nroChaves = 1;
     novoNo->tipoNo = no->tipoNo;
-
-    *ponteiroDadosChavePromovida = itens[2].ptrDados;
-
-    return itens[2].chave;
 }
 
 void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {
