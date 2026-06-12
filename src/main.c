@@ -212,7 +212,7 @@ int main(){
                 return 0;
             }
 
-            fileDados = fopen(arquivoDados, "rb+");
+            fileDados = fopen(arquivoDados, "rb");
             if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
                 return 0;
@@ -226,7 +226,7 @@ int main(){
                 return 0;
             }
 
-            fileDados = fopen(arquivoDados, "rb+");
+            fileDados = fopen(arquivoDados, "rb");
             if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
                 return 0;

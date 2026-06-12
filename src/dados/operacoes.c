@@ -11,10 +11,7 @@
 #include <string.h>
 
 bool create(char *arquivoEntrada, char *arquivoSaida){
-    //tenta abrir para leitura+escrita
-    FILE *file = fopen(arquivoSaida, "rb+");
-    //se não existir, cria o arquivo
-    if(!file) file = fopen(arquivoSaida, "wb");
+    FILE *file = fopen(arquivoSaida, "wb");
 
     int proxRRN = 0;
     //cria um hashmap para depois obter, eficientemente, o nroEstacoes únicas
