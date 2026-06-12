@@ -9,6 +9,7 @@
 #include "../headers/fornecidas.h"
 #include "../headers/dados/registro.h"
 #include "../headers/dados/cabecalho.h"
+#include "../headers/indice/btree_cabecalho.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -187,6 +188,8 @@ int main(){
     char *arquivoDados = NULL;
     char *arquivoSaida = NULL;
     char *arquivoIndice = NULL;
+    FILE *fileDados = NULL;
+    FILE *fileIndice = NULL;
     bool ok = false;
     switch (op) {
         case 1: // CREATE
@@ -266,6 +269,12 @@ int main(){
                 return -1;
             }
 
+            fileDados = fopen(arquivoDados, "rb+");
+            if (!fileDados) {
+                printf("Falha no processamento do arquivo.\n");
+                return -1;
+            }
+
             int nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
 
@@ -291,8 +300,13 @@ int main(){
                     ScanQuoteString(valores[k].valor);
                 }
 
+                //reseta o ponteiro pro início do arquivo
+                //para inserções sucessivas
+                if(i != 0) fseek(fileDados, 0, SEEK_SET);
+
                 // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
-                if (ok && !insert(arquivoDados, arquivoIndice, valores, MAX_PARES)) ok = false;
+                int dummy; //não vai ser utilizado
+                if (ok && !insert(fileDados, NULL, valores, MAX_PARES, &dummy)) ok = false;
             }
 
             if (ok) BinarioNaTela(arquivoDados);
@@ -357,13 +371,13 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             arquivoIndice = lerNomeArquivo();
             if (!arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             nBuscas = 0;
@@ -386,18 +400,38 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             arquivoIndice = lerNomeArquivo();
             if (!arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
-            
+
+            fileDados = fopen(arquivoDados, "rb+");
+            if (!fileDados) {
+                printf("Falha no processamento do arquivo.\n");
+                return 0;
+            }
+
+            fileIndice = fopen(arquivoIndice, "rb+");
+            if(!fileIndice){
+                printf("Falha no processamento do arquivo.\n");
+                return 0;
+            }
 
             nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
+
+            //lê o nroNos ao abrir o arquivo
+            //para só atualizar ao final das
+            //'n' operações 
+            int nroNos;
+            if(fileIndice){
+                fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+                fread(&nroNos, sizeof(int), 1, fileIndice);
+            }
 
             // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
             for (int i = 0; i < nInsercoes; i++) {
@@ -422,19 +456,25 @@ int main(){
                     else ScanQuoteString(valores[k].valor);
                 }
 
-                bool sucesso = insert(arquivoDados, arquivoIndice, valores, MAX_PARES);
-                if(!sucesso) return 0;
+                //reseta o ponteiro pro início do arquivo
+                //para inserções sucessivas
+                if(i != 0) fseek(fileDados, 0, SEEK_SET);
+                bool sucesso = insert(fileDados, fileIndice, valores, MAX_PARES, &nroNos);
             }
 
-            FILE *fileDados = fopen(arquivoDados, "r+b");
             int nroEstacoes;
             int nroParesEstacoes;
             calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
-
             fseek(fileDados, 9, SEEK_SET);
             fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
             fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
-            fclose(fileDados);
+
+            //após as 'n' operações, atualiza o nroNos
+            fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+            fwrite(&nroNos, sizeof(int), 1, fileIndice);
+
+            if(fileDados) fclose(fileDados);
+            if(fileIndice) fclose(fileIndice);
 
             BinarioNaTela(arquivoDados);
             BinarioNaTela(arquivoIndice);

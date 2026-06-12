@@ -69,7 +69,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
  * @return true registro inserido com sucesso
  * @return false falha no processamento
  */
-bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mValores);
+bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores, int *nroNos);
 
 
 /** @brief Dado um arquivo binário, atualiza os registros que correspondem aos critérios de busca especificados.
