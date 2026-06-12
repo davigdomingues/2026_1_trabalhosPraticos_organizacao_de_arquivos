@@ -37,9 +37,10 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice);
  * @param fileIndice arquivo de índice da Árvore-B
  * @param chave chave a ser inserida
  * @param ponteiroDados ponteiro para o registro no arquivo de dados
+ * @param nroNos ponteiro para o contador de nós da Árvore-B, que será atualizado conforme novos nós são criados
  * @return int código de sucesso ou erro da operação de inserção
  */
-bool removerChaveIndice(FILE *fileIndice, int chave);
+bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos);
 
 /**
  * @brief Função recursiva que percorre a Árvore-B para localizar e remover a chave especificada, realizando operações de empréstimo ou merge conforme necessário para manter as propriedades da árvore
@@ -47,9 +48,10 @@ bool removerChaveIndice(FILE *fileIndice, int chave);
  * @param fileIndice arquivo de índice da Árvore-B
  * @param rrnAtual RRN do nó atual sendo processado
  * @param chave chave a ser removida
+ * @param nroNos ponteiro para o contador de nós da Árvore-B, que será atualizado conforme nós são removidos ou mesclados
  * @return int código indicando o resultado da remoção (sucesso, chave não encontrada, underflow pendente)
  */
-int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave);
+int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos);
 
 /**
  * @brief Trata o underflow em um nó da Árvore-B após uma remoção, realizando empréstimo ou merge conforme necessário para restaurar as propriedades da árvore
@@ -58,8 +60,9 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave);
  * @param pai nó pai do nó em underflow
  * @param rrnPai RRN do nó pai
  * @param indicePonteiroFilho índice do ponteiro no nó pai que aponta para o nó em underflow
+ * @param nroNos ponteiro para o contador de nós da Árvore-B, que será atualizado conforme nós são mesclados ou removidos
  */
-void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho);
+void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho, int *nroNos);
 
 /**
  * @brief Realiza o merge de dois nós da Árvore-B após uma remoção, combinando-os em um único nó
@@ -72,8 +75,9 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
  * @param rrnDir RRN do nó à direita
  * @param rrnPai RRN do nó pai
  * @param indiceChavePai índice da chave no nó pai que separa os nós a serem mesclados
+ * @param nroNos ponteiro para o contador de nós da Árvore-B, que será atualizado conforme nós são mesclados ou removidos
  */
-void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrnDir, int rrnPai, int indiceChavePai);
+void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrnDir, int rrnPai, int indiceChavePai, int *nroNos);
 
 /**
  * @brief Remove registros do arquivo de dados e suas chaves da Árvore-B
@@ -83,8 +87,9 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
  * @param fileIndice ponteiro para o arquivo de índice de saída
  * @param pares array de pares campo-valor
  * @param mPares tamanho do array de pares
+ * @param nroNos ponteiro para o contador de nós da Árvore-B, que será atualizado conforme nós são removidos ou mesclados
  * @return bool true se a remoção foi bem-sucedida, false caso contrário
  */
-bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares);
+bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares, int *nroNos);
 
 #endif

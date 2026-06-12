@@ -201,7 +201,7 @@ void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, Ele
     novoNo->tipoNo = no->tipoNo;
 }
 
-void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {
+void apagarNo(FILE *fileIndice, int rrnNoParaApagar, int *nroNos) {
     int topoAtual;
     fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
     fread(&topoAtual, sizeof(int), 1, fileIndice);
@@ -212,15 +212,9 @@ void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {
     fwrite(&removido, sizeof(char), 1, fileIndice);
     fwrite(&topoAtual, sizeof(int), 1, fileIndice);
 
-    // Atualiza o topo
+    // Atualiza o topo da pilha de nós excluídos
     fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
     fwrite(&rrnNoParaApagar, sizeof(int), 1, fileIndice);
 
-    // Decrementa estritamente o nroNos, como pede a especificação do trabalho 2
-    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-    int nroNos;
-    fread(&nroNos, sizeof(int), 1, fileIndice);
-    nroNos--;
-    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-    fwrite(&nroNos, sizeof(int), 1, fileIndice);
+    if (nroNos != NULL) (*nroNos)--; // Decrementa o contador de nós da Árvore-B, apenas em memória, sem alterar o arquivo
 }

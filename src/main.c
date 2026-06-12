@@ -535,6 +535,7 @@ int main(){
             arquivoIndice = lerNomeArquivo();
             if (!arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
+                free(arquivoDados);
                 return 0;
             }
 
@@ -545,8 +546,14 @@ int main(){
                 printf("Falha no processamento do arquivo.\n");
                 if (fileDados) fclose(fileDados);
                 if (fileIndice) fclose(fileIndice);
+                free(arquivoDados); free(arquivoIndice);
                 return 0;
             }
+
+            // Recuperaão do nroNos inicial do cabeçalho do índice
+            int nroNosRemocao;
+            fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+            fread(&nroNosRemocao, sizeof(int), 1, fileIndice);
 
             int nRemocoesIdx = 0;
             scanf("%d", &nRemocoesIdx);
@@ -560,13 +567,18 @@ int main(){
                 
                 lerPares(paresDeleteIdx, mPares);
 
-                if (ok && !deleteWhereIndexado(fileDados, fileIndice, paresDeleteIdx, mPares)) {
-                    ok = false; // falha crítica em alguma parte do processo
+                // Passa nroNosRemocao por referência, a fim de realizar o rastreamento em memória
+                if (ok && !deleteWhereIndexado(fileDados, fileIndice, paresDeleteIdx, mPares, &nroNosRemocao)) {
+                    ok = false;
                 }
 
                 liberarPares(paresDeleteIdx, mPares); 
             }
             free(paresDeleteIdx);
+
+            // Atualização o cabeçalho físico com o total de nós resultante (processo de escrita única para evitar overhead de múltiplas escritas no cabeçalho)
+            fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+            fwrite(&nroNosRemocao, sizeof(int), 1, fileIndice);
 
             fclose(fileDados);
             fclose(fileIndice);

@@ -322,14 +322,14 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
     return true;
 }
 
-bool removerChaveIndice(FILE *fileIndice, int chave) {
+bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {
     int rrnRaiz;
     fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
     fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
     if (rrnRaiz == -1) return false;
 
-    int status = removerRecursivo(fileIndice, rrnRaiz, chave);
+    int status = removerRecursivo(fileIndice, rrnRaiz, chave, nroNos);
     
     if (status == CHAVE_NAO_ENCONTRADA) {
         return false; 
@@ -348,7 +348,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
             fwrite(&novaRaiz, sizeof(int), 1, fileIndice);
 
-            apagarNo(fileIndice, rrnRaiz);
+            apagarNo(fileIndice, rrnRaiz, nroNos); // O nó antigo da raiz é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
             
             No *nRaiz = inicializarNo();
             fseek(fileIndice, BTREE_NO_INICIO(novaRaiz), SEEK_SET);
@@ -365,14 +365,14 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
             int vazio = -1;
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
             fwrite(&vazio, sizeof(int), 1, fileIndice);
-            apagarNo(fileIndice, rrnRaiz);
+            apagarNo(fileIndice, rrnRaiz, nroNos);
         }
     }
     free(raiz);
     return true; 
 }
 
-int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
+int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
     if (rrnAtual == -1) return CHAVE_NAO_ENCONTRADA;
 
     No *noAtual = inicializarNo();
@@ -417,9 +417,9 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
             escreverNo(fileIndice, noAtual);
 
             // Chamada recursiva para apagar a sucessora promovida
-            int statusSub = removerRecursivo(fileIndice, noAtual->P[pos+1], chaveSucessora);
+            int statusSub = removerRecursivo(fileIndice, noAtual->P[pos+1], chaveSucessora, nroNos);
             if (statusSub == UNDERFLOW_PENDENTE) {
-                tratarUnderflow(fileIndice, noAtual, rrnAtual, pos + 1);
+                tratarUnderflow(fileIndice, noAtual, rrnAtual, pos + 1, nroNos);
             }
         }
     } else {
@@ -429,14 +429,14 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
         }
 
         // Continua a busca na subárvore adequada
-        int statusSub = removerRecursivo(fileIndice, noAtual->P[pos], chave);
+        int statusSub = removerRecursivo(fileIndice, noAtual->P[pos], chave, nroNos);
         if (statusSub == CHAVE_NAO_ENCONTRADA) {
             free(noAtual);
             return CHAVE_NAO_ENCONTRADA;
         }
 
         if (statusSub == UNDERFLOW_PENDENTE) {
-            tratarUnderflow(fileIndice, noAtual, rrnAtual, pos);
+            tratarUnderflow(fileIndice, noAtual, rrnAtual, pos, nroNos);
         }
     }
 
@@ -453,7 +453,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
     return SUCESSO;
 }
 
-void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho) {
+void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho, int *nroNos) {
     // Carrega o nó em underflow e seus irmãos adjacentes (se existirem)
     int rrnAtual = pai->P[indicePonteiroFilho]; // RRN do nó que está em underflow
     No *atual = inicializarNo(); 
@@ -595,18 +595,18 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
 
     // 3: Merge na esquerda (O Enunciado exige tentar Esquerda primeiro na Concatenação)
     if (irmEsq != NULL)
-        fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1);
+        fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1, nroNos);
 
     // 4: Merge na direita (Se não for possível na esquerda)
     else if (irmDir != NULL)
-        fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho);
+        fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho, nroNos);
     
     free(atual); 
     if(irmEsq) free(irmEsq); 
     if(irmDir) free(irmDir);
 }
 
-void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrnDir, int rrnPai, int indiceChavePai) {
+void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrnDir, int rrnPai, int indiceChavePai, int *nroNos) {
     // A chave do pai que separa os dois nós é movida para o nó da esquerda, e as chaves do nó da direita são anexadas à direita do nó da esquerda
     esq->C[esq->nroChaves] = pai->C[indiceChavePai];
     esq->Pr[esq->nroChaves] = pai->Pr[indiceChavePai];
@@ -637,10 +637,10 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     fseek(fileIndice, BTREE_NO_INICIO(rrnEsq), SEEK_SET); escreverNo(fileIndice, esq);
     fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
     
-    apagarNo(fileIndice, rrnDir); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
+    apagarNo(fileIndice, rrnDir, nroNos); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
 }
 
-bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares) {
+bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares, int *nroNos) {
     if (!fileDados || !fileIndice) return false;
 
     char statusDados, statusIndice;
@@ -688,7 +688,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
                     fseek(fileDados, 1, SEEK_SET); 
                     fwrite(&topoDados, sizeof(int), 1, fileDados);
                         
-                    removerChaveIndice(fileIndice, chaveBuscada);
+                    removerChaveIndice(fileIndice, chaveBuscada, nroNos);
                 }
             }
         }
@@ -723,7 +723,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
             topoDados = rrn;
 
             // Remove a chave resgatada da Árvore-B
-            if (!removerChaveIndice(fileIndice, chaveParaRemover)) {
+            if (!removerChaveIndice(fileIndice, chaveParaRemover, nroNos)) {
                 ok = false; 
                 break;
             }
