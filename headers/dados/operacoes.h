@@ -21,7 +21,7 @@ bool create(char *arquivoEntrada, char *arquivoSaida);
  * 
  * @param arquivoEntrada caminho para o arquivo binário de entrada
  */
-void selectAll(char *arquivoEntrada);
+void selectAll(FILE *file);
 
 
 /**
@@ -46,7 +46,7 @@ int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *par, int mPares, 
  * @return int sinal indica sucesso ou falha da operação
  */
 
-int selectAllWhere(char *arquivoDados, char *arquivoIndice, CampoValor *pares, int mPares);
+int selectAllWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares);
 
 
 /** @brief Dado um arquivo binário, remove logicamente os registros que correspondem aos critérios de busca especificados.
@@ -69,7 +69,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
  * @return true registro inserido com sucesso
  * @return false falha no processamento
  */
-bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mValores);
+bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores, int *nroNos);
 
 
 /** @brief Dado um arquivo binário, atualiza os registros que correspondem aos critérios de busca especificados.

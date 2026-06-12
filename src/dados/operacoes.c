@@ -112,12 +112,7 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
     return true;
 }
 
-void selectAll(char *arquivoEntrada){
-    FILE *file = fopen(arquivoEntrada, "rb");
-    if(!file){
-        printf("Falha no processamento do arquivo.\n");
-        return;
-    }
+void selectAll(FILE *file){
     fseek(file, TAM_CABECALHO, SEEK_SET); 
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));
@@ -186,22 +181,8 @@ void selectAll(char *arquivoEntrada){
     fclose(file);
 }
 
-int selectAllWhere(char *arquivoDados, char *arquivoIndice, CampoValor *pares, int mPares){
-    FILE *fileDados = fopen(arquivoDados, "rb");
-    if (!fileDados) {
-        printf("Falha no processamento do arquivo.\n");
-        return -1;
-    }
-
-    FILE *fileIndice = NULL;
-    if(arquivoIndice != NULL){
-        fileIndice = fopen(arquivoIndice, "rb");
-    }
-
+int selectAllWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares){
     int res = selectWhere(fileDados, fileIndice, pares, mPares, 0, false, true);
-
-    fclose(fileDados);
-    if(arquivoIndice != NULL) fclose(fileIndice);
     return res;
 }
 
@@ -336,23 +317,8 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
     return true;
 }
 
-bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mValores) {
-    // tenta abrir para leitura+escrita, para depois atualizar o arquivo com o novo registro inserido
-    FILE *fileDados = fopen(arquivoDados, "r+b");
-    if (!fileDados) {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
-
-
-    FILE *fileIndice;
-    if(*valores[CAMPO_COD_ESTACAO].valor && arquivoIndice != NULL){
-        fileIndice = fopen(arquivoIndice, "rb+");
-        if(!fileIndice){
-            printf("Falha no processamento do arquivo.\n");
-            return false;
-        }
-
+bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores, int *nroNos) {
+    if(*valores[CAMPO_COD_ESTACAO].valor && fileIndice != NULL){
         CampoValor *pares[8] = {NULL};
         CampoValor *apenasCodEstacao = (CampoValor*) malloc(sizeof(CampoValor));
         apenasCodEstacao->campo = valores[CAMPO_COD_ESTACAO].campo;
@@ -362,8 +328,6 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
         int res = selectWhereIndexado(fileDados, fileIndice, pares, 1, false);
         if(res > 0){
             free(apenasCodEstacao);
-            fclose(fileDados);
-            fclose(fileIndice);
             return true;
         }
     }
@@ -381,7 +345,6 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
         fread(&nroEstacoes, sizeof(int), 1, fileDados) != 1 ||
         fread(&nroPares, sizeof(int), 1, fileDados) != 1) {
         printf("Falha no processamento do arquivo.\n");
-        fclose(fileDados);
         return false;
     }
 
@@ -398,15 +361,6 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
 
     if (ok) {
         if (TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha) < 0) ok = false;
-
-        // atualiza nroEstacoes somente se for um novo nome de estação (contagem por nome)
-        if (reg.tamNomeEstacao > 0 && !nomeEstacaoJaExiste(fileDados, reg.nomeEstacao, reg.tamNomeEstacao)) {
-            nroEstacoes++;
-        }
-        // só incrementa os pares se a próxima estação for válida (não nula)
-        if (reg.codProxEstacao != -1) {
-            nroPares++;
-        }
 
         if (topo != -1) {
             // Reaproveita um registro removido.
@@ -443,10 +397,6 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
         // salva o proxRRN atualizado no cabeçalho (sempre salva, pois ele pode ter mudado no else acima)
         fseek(fileDados, DADOS_OFF_PROXRRN, SEEK_SET);
         fwrite(&proxRRN, sizeof(int), 1, fileDados);
-
-        // atualiza apenas os contadores do cabeçalho (sem recalcular varrendo o arquivo)
-        atualizarNroEstacoes(fileDados, nroEstacoes, true);
-        atualizarNroParesEstacoes(fileDados, nroPares, false); //false porque são campos contíguos
         atualizarStatus(fileDados, '1', true);
     }
 
@@ -457,19 +407,16 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
     // caso haja algum erro durante a escrita do registro ou a atualização dos contadores
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
-        fclose(fileDados);
         return false;
     }
-    fclose(fileDados);
 
     // lógica específica para o arquivo de índice: se ele existir, insere o par chave-ponteiro no índice
     // e trata a questão da consistência do arquivo de índice durante a escrita
-    if (arquivoIndice != NULL) {
+    if (fileIndice != NULL) {
         if (!fileIndice) {
             ok = false;
         } else {
-            insertIndice(fileIndice, reg.codEstacao, ponteiroDados);
-            fclose(fileIndice);
+            insertIndice(fileIndice, reg.codEstacao, ponteiroDados, nroNos);
         }
 
         if (!ok) printf("Falha no processamento do arquivo.\n");

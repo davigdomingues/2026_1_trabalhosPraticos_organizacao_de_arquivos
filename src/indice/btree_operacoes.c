@@ -118,7 +118,7 @@ No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice 
     return novoNo;
 }
 
-void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBaixo){
+void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBaixo, int *nroNos){
     int rrnNovaRaiz;
     No *novaRaiz = criarNo(fileIndice, &rrnNovaRaiz);
 
@@ -133,19 +133,11 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
     fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); 
     fwrite(&rrnNovaRaiz, sizeof(int), 1, fileIndice);
 
-    //atualiza o número de nós da árvore
-    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-    int nroNos;
-    fread(&nroNos, sizeof(int), 1, fileIndice);
-
     //se este for ser o único nó da árvore, 
     //quer dizer que é um nó raiz e folha.
     //por convenção, o tipo é folha
-    if(nroNos == 0) novaRaiz->tipoNo = NO_FOLHA;
-
-    nroNos++;
-    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-    fwrite(&nroNos, sizeof(int), 1, fileIndice);
+    if(*nroNos == 0) novaRaiz->tipoNo = NO_FOLHA;
+    (*nroNos)++;
 
     //salva a nova raiz no arquivo
     int inicioNovaRaiz = BTREE_NO_INICIO(rrnNovaRaiz);
@@ -155,7 +147,7 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
     free(novaRaiz);
 }
 
-int insertIndice(FILE *fileIndice, int chave, int ptrDados){
+int insertIndice(FILE *fileIndice, int chave, int ptrDados, int *nroNos){
     char inconsistente = '0';
     fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
     fwrite(&inconsistente, sizeof(char), 1, fileIndice);
@@ -164,8 +156,8 @@ int insertIndice(FILE *fileIndice, int chave, int ptrDados){
     fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
     ElementoIndice promoDeBaixo;
-    int res = insertIndiceRec(fileIndice, chave, ptrDados, rrnRaiz, &promoDeBaixo);
-    if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, promoDeBaixo);
+    int res = insertIndiceRec(fileIndice, chave, ptrDados, rrnRaiz, &promoDeBaixo, nroNos);
+    if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, promoDeBaixo, nroNos);
 
     //atualiza o status de consistência
     fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
@@ -174,7 +166,7 @@ int insertIndice(FILE *fileIndice, int chave, int ptrDados){
     return 1;
 }
 
-int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, ElementoIndice *promoPraCima){
+int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, ElementoIndice *promoPraCima, int *nroNovosNos){
     if(rrnNoAtual == -1){
         promoPraCima->chave = chave;
         promoPraCima->ptrDados = ptrDados;
@@ -196,7 +188,7 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
     }
 
     ElementoIndice promoDeBaixo;
-    int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo);
+    int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo, nroNovosNos);
 
     if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) return res;
     else if (no->nroChaves < NRO_MAX_CHAVES){
@@ -216,13 +208,7 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
         fseek(fileIndice, inicioNovoNo, SEEK_SET);
         escreverNo(fileIndice, novoNo);
 
-        //atualiza o número de nós da árvore
-        fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-        int nroNos;
-        fread(&nroNos, sizeof(int), 1, fileIndice);
-        nroNos++;
-        fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-        fwrite(&nroNos, sizeof(int), 1, fileIndice);
+        (*nroNovosNos)++;
         return PROMOCAO;
     }
 
@@ -274,6 +260,7 @@ bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
 
     offsetRegistro = TAM_CABECALHO;
 
+    int nroNos = 0;
     while (1) {
         char removido;
         int lixo, chave, tamNomeEstacao, tamNomeLinha;
@@ -327,7 +314,7 @@ bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
             break;
         }
 
-        if (insertIndice(fileIndice, chave, (int)offsetRegistro) == ERRO_DE_INSERCAO) {
+        if (insertIndice(fileIndice, chave, (int)offsetRegistro, &nroNos) == ERRO_DE_INSERCAO) {
             ok = false;
             break;
         }
@@ -337,6 +324,8 @@ bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
 
     if (ok) {
         ok = atualizarStatusIndice(fileIndice, '1');
+        fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+        fwrite(&nroNos, sizeof(int), 1, fileIndice);
     }
 
     fclose(fileDados);
