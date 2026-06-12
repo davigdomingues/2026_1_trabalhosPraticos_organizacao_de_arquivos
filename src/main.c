@@ -196,7 +196,7 @@ int main(){
     switch (op) {
         case 1: // CREATE
             arquivoDados = lerNomeArquivo();
-            arquivoSaida   = lerNomeArquivo();
+            arquivoSaida = lerNomeArquivo();
             if (!arquivoDados || !arquivoSaida){
                 printf("Falha no processamento do arquivo.\n");
                 return 0;
@@ -387,7 +387,21 @@ int main(){
             arquivoIndice = lerNomeArquivo();
             if (!arquivoIndice) return 0;
 
-            ok = criarIndiceArvoreB(arquivoDados, arquivoIndice);
+            fileDados = fopen(arquivoDados, "rb");
+            fileIndice = fopen(arquivoIndice, "wb+");
+
+            if (!fileDados || !fileIndice) {
+                printf("Falha no processamento do arquivo.\n");
+                if (fileDados) fclose(fileDados);
+                if (fileIndice) fclose(fileIndice);
+                break;
+            }
+
+            ok = criarIndiceArvoreB(fileDados, fileIndice);
+            
+            fclose(fileDados);
+            fclose(fileIndice);
+
             if (ok) BinarioNaTela(arquivoIndice);
             break;
         case 8: //SELECT WHERE COM INDEXAÇÃO
@@ -524,6 +538,16 @@ int main(){
                 return 0;
             }
 
+            fileDados = fopen(arquivoDados, "r+b");
+            fileIndice = fopen(arquivoIndice, "r+b");
+
+            if (!fileDados || !fileIndice) {
+                printf("Falha no processamento do arquivo.\n");
+                if (fileDados) fclose(fileDados);
+                if (fileIndice) fclose(fileIndice);
+                return 0;
+            }
+
             int nRemocoesIdx = 0;
             scanf("%d", &nRemocoesIdx);
 
@@ -536,13 +560,16 @@ int main(){
                 
                 lerPares(paresDeleteIdx, mPares);
 
-                if (ok && !deleteWhereIndexado(arquivoDados, arquivoIndice, paresDeleteIdx, mPares)) {
+                if (ok && !deleteWhereIndexado(fileDados, fileIndice, paresDeleteIdx, mPares)) {
                     ok = false; // falha crítica em alguma parte do processo
                 }
 
                 liberarPares(paresDeleteIdx, mPares); 
             }
             free(paresDeleteIdx);
+
+            fclose(fileDados);
+            fclose(fileIndice);
 
             if (ok) {
                 BinarioNaTela(arquivoDados);

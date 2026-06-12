@@ -24,12 +24,12 @@ No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice 
 /**
  * @brief cria a árvore-B de índice a partir do arquivo binário de dados
  * 
- * @param arquivoDados caminho do arquivo de dados de entrada
- * @param arquivoIndice caminho do arquivo de índice de saída
+ * @param fileDados ponteiro para o arquivo de dados de entrada
+ * @param fileIndice ponteiro para o arquivo de índice de saída
  * @return true índice criado com sucesso
  * @return false falha no processamento
  */
-bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice);
+bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice);
 
 /**
  * @brief Insere uma chave e seu ponteiro de dados correspondente na Árvore-B, promovendo chaves e dividindo nós conforme necessário para manter as propriedades da árvore
@@ -78,7 +78,13 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
 /**
  * @brief Remove registros do arquivo de dados e suas chaves da Árvore-B
  * dependendo se a chave primária foi fornecida na query (O(log n)) ou não (O(n)).
+ * 
+ * @param fileDados ponteiro para o arquivo de dados de entrada
+ * @param fileIndice ponteiro para o arquivo de índice de saída
+ * @param pares array de pares campo-valor
+ * @param mPares tamanho do array de pares
+ * @return bool true se a remoção foi bem-sucedida, false caso contrário
  */
-bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *pares, int mPares);
+bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares);
 
 #endif

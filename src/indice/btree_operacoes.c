@@ -215,48 +215,34 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
     return 0;
 }
 
-bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
-    FILE *fileDados = NULL;
-    FILE *fileIndice = NULL;
+bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
     char statusDados;
     bool ok = true;
     long offsetRegistro;
 
-    if(!arquivoDados || !arquivoIndice) {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
-
-    fileDados = fopen(arquivoDados, "rb");
-    fileIndice = fopen(arquivoIndice, "wb+");
-
     if(!fileDados || !fileIndice) {
         printf("Falha no processamento do arquivo.\n");
-        if(fileDados) fclose(fileDados);
-        if(fileIndice) fclose(fileIndice);
         return false;
     }
+
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET); // Reposiciona para ler o status do arquivo de dados
 
     if(fread(&statusDados, sizeof(char), 1, fileDados) != 1 || statusDados != '1') {
         printf("Falha no processamento do arquivo.\n");
-        fclose(fileDados);
-        fclose(fileIndice);
         return false;
     }
 
     if(!escreverCabecalhoIndice(fileIndice, '0', -1, -1, 0, 0)) {
         printf("Falha no processamento do arquivo.\n");
-        fclose(fileDados);
-        fclose(fileIndice);
         return false;
     }
 
     if(fseek(fileDados, TAM_CABECALHO, SEEK_SET) != 0) {
         printf("Falha no processamento do arquivo.\n");
-        fclose(fileDados);
-        fclose(fileIndice);
         return false;
     }
+
+    offsetRegistro = TAM_CABECALHO;
 
     offsetRegistro = TAM_CABECALHO;
 
@@ -327,9 +313,6 @@ bool criarIndiceArvoreB(char *arquivoDados, char *arquivoIndice){
         fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
         fwrite(&nroNos, sizeof(int), 1, fileIndice);
     }
-
-    fclose(fileDados);
-    fclose(fileIndice);
 
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
@@ -657,23 +640,20 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     apagarNo(fileIndice, rrnDir); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
 }
 
-bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *pares, int mPares) {
-    FILE *fileDados = fopen(arquivoEntrada, "r+b");
-    FILE *fileIndice = fopen(arquivoIndice, "r+b");
-    if (!fileDados || !fileIndice) {
-        if (fileDados) fclose(fileDados);
-        if (fileIndice) fclose(fileIndice);
-        return false;
-    }
+bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares) {
+    if (!fileDados || !fileIndice) return false;
 
     char statusDados, statusIndice;
     int topoDados;
 
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET); // Reposiciona para ler o status do arquivo de dados de forma segura (dados)
     if (fread(&statusDados, sizeof(char), 1, fileDados) != 1 || statusDados != '1' || fread(&topoDados, sizeof(int), 1, fileDados) != 1) {
-        fclose(fileDados); fclose(fileIndice); return false;
+        return false;
     }
+
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET); // Reposiciona para ler o status do arquivo de índice de forma segura (índice)
     if (fread(&statusIndice, sizeof(char), 1, fileIndice) != 1 || statusIndice != '1') {
-        fclose(fileDados); fclose(fileIndice); return false;
+        return false;
     }
 
     atualizarStatus(fileDados, '0', true);
@@ -759,9 +739,6 @@ bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *
 
     atualizarStatus(fileDados, '1', true);
     atualizarStatusIndice(fileIndice, '1');
-
-    fclose(fileDados);
-    fclose(fileIndice);
 
     return ok;
 }
