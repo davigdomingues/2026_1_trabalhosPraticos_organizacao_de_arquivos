@@ -112,12 +112,7 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
     return true;
 }
 
-void selectAll(char *arquivoEntrada){
-    FILE *file = fopen(arquivoEntrada, "rb");
-    if(!file){
-        printf("Falha no processamento do arquivo.\n");
-        return;
-    }
+void selectAll(FILE *file){
     fseek(file, TAM_CABECALHO, SEEK_SET); 
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));
@@ -186,22 +181,8 @@ void selectAll(char *arquivoEntrada){
     fclose(file);
 }
 
-int selectAllWhere(char *arquivoDados, char *arquivoIndice, CampoValor *pares, int mPares){
-    FILE *fileDados = fopen(arquivoDados, "rb");
-    if (!fileDados) {
-        printf("Falha no processamento do arquivo.\n");
-        return -1;
-    }
-
-    FILE *fileIndice = NULL;
-    if(arquivoIndice != NULL){
-        fileIndice = fopen(arquivoIndice, "rb");
-    }
-
+int selectAllWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares){
     int res = selectWhere(fileDados, fileIndice, pares, mPares, 0, false, true);
-
-    fclose(fileDados);
-    if(arquivoIndice != NULL) fclose(fileIndice);
     return res;
 }
 

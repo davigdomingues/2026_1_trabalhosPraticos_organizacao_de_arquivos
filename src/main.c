@@ -199,7 +199,7 @@ int main(){
             arquivoSaida   = lerNomeArquivo();
             if (!arquivoDados || !arquivoSaida){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             ok = create(arquivoDados, arquivoSaida);
@@ -207,15 +207,29 @@ int main(){
             break;
         case 2: // SELECT ALL
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados){
+                printf("Falha no processamento do arquivo.\n");
+                return 0;
+            }
 
-            selectAll(arquivoDados);
+            fileDados = fopen(arquivoDados, "rb+");
+            if (!fileDados) {
+                printf("Falha no processamento do arquivo.\n");
+                return 0;
+            }
+            selectAll(fileDados);
             break;
         case 3: // SELECT ALL WHERE
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
+            }
+
+            fileDados = fopen(arquivoDados, "rb+");
+            if (!fileDados) {
+                printf("Falha no processamento do arquivo.\n");
+                return 0;
             }
 
             int nBuscas = 0;
@@ -228,17 +242,18 @@ int main(){
 
                 lerPares(pares, mPares);
 
-                selectAllWhere(arquivoDados, NULL, pares, mPares);
+                selectAllWhere(fileDados, NULL, pares, mPares);
 
                 liberarPares(pares, mPares);
             }
             free(pares);
+            fclose(fileDados);
             break;
         case 4: // DELETE WHERE
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             int nRemocoes = 0; // número de operações de remoção a serem realizadas
@@ -268,13 +283,13 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             fileDados = fopen(arquivoDados, "rb+");
             if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             int nInsercoes = 0; // número de operações de inserção a serem realizadas
@@ -323,7 +338,7 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             int nAtualizacoes = 0; // número de operações de atualização a serem realizadas
@@ -367,10 +382,10 @@ int main(){
             break;
         case 7: // CREATE INDEX ÁRVORE-B
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return -1;
+            if (!arquivoDados) return 0;
 
             arquivoIndice = lerNomeArquivo();
-            if (!arquivoIndice) return -1;
+            if (!arquivoIndice) return 0;
 
             ok = criarIndiceArvoreB(arquivoDados, arquivoIndice);
             if (ok) BinarioNaTela(arquivoIndice);
@@ -388,6 +403,16 @@ int main(){
                 return 0;
             }
 
+            fileDados = fopen(arquivoDados, "rb");
+            if (!fileDados) {
+                printf("Falha no processamento do arquivo.\n");
+                return 0;
+            }
+
+            if(arquivoIndice != NULL){
+                fileIndice = fopen(arquivoIndice, "rb");
+            }
+
             nBuscas = 0;
             scanf("%d", &nBuscas);
 
@@ -398,11 +423,13 @@ int main(){
 
                 lerPares(pares, mPares);
 
-                selectAllWhere(arquivoDados, arquivoIndice, pares, mPares);
-
+                selectAllWhere(fileDados, fileIndice, pares, mPares);
                 liberarPares(pares, mPares);
             }
+
             free(pares);
+            fclose(fileDados);
+            if(fileIndice) fclose(fileIndice);
             break;
         case 9: // INSERT COM INDEXAÇÃO
             arquivoDados = lerNomeArquivo();
@@ -432,9 +459,8 @@ int main(){
             nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
 
-            //lê o nroNos ao abrir o arquivo
-            //para só atualizar ao final das
-            //'n' operações 
+            //lê o nroNos ao abrir o arquivo para 
+            //só atualizar ao final das 'n' operações 
             int nroNos;
             if(fileIndice){
                 fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
@@ -489,13 +515,13 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
             
             arquivoIndice = lerNomeArquivo();
             if (!arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
-                return -1;
+                return 0;
             }
 
             int nRemocoesIdx = 0;
