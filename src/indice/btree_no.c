@@ -18,7 +18,7 @@ static void limparNo(No *no) {
     no->P[NRO_MAX_CHAVES] = -1;
 }
 
-No *incializarNo(){
+No *inicializarNo(){
     No *no = (No*) malloc(sizeof(No));
     int *C = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
     int *Pr = (int*) malloc(sizeof(int) * NRO_MAX_CHAVES);
@@ -71,7 +71,7 @@ No *criarNo(FILE *fileIndice, int *novoRRN){
         fseek(fileIndice, 5, SEEK_SET);
         fwrite(&novoTopo, sizeof(int), 1, fileIndice);
     }
-    return incializarNo();
+    return inicializarNo();
 }
 
 bool escreverNo(FILE *fileIndice, No *no){

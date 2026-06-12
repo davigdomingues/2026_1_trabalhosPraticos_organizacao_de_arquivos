@@ -37,7 +37,7 @@ static bool atualizarStatusIndice(FILE *fileIndice, char status) {
 int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print){
     int chave = atoi(pares[CAMPO_COD_ESTACAO]->valor);
     int rrnRaiz;
-    fseek(fileIndice, 1, SEEK_SET);
+    fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
     fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
     int rrnRes;
@@ -91,7 +91,7 @@ bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, 
     int inicioNo = TAM_BTREE_CABECALHO + rrnNoAtual * TAM_NO;
     fseek(fileIndice, inicioNo, SEEK_SET);
 
-    No *no = incializarNo();
+    No *no = inicializarNo();
     lerNo(fileIndice, no);
 
     int subArvore;
@@ -135,11 +135,11 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
     novaRaiz->tipoNo = NO_RAIZ;
 
     //atualiza o cabeçalho do arquivo para apontar para o RRN da nova raiz
-    fseek(fileIndice, 1, SEEK_SET); 
+    fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); 
     fwrite(&rrnNovaRaiz, sizeof(int), 1, fileIndice);
 
     //atualiza o número de nós da árvore
-    fseek(fileIndice, 13, SEEK_SET);
+    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     int nroNos;
     fread(&nroNos, sizeof(int), 1, fileIndice);
 
@@ -149,7 +149,7 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
     if(nroNos == 0) novaRaiz->tipoNo = NO_FOLHA;
 
     nroNos++;
-    fseek(fileIndice, 13, SEEK_SET);
+    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
     fwrite(&nroNos, sizeof(int), 1, fileIndice);
 
     //salva a nova raiz no arquivo
@@ -163,7 +163,7 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
 
 int insertIndice(FILE *fileIndice, int chave, int ptrDados){
     char inconsistente = '0';
-    fseek(fileIndice, 0, SEEK_SET);
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
     fwrite(&inconsistente, sizeof(char), 1, fileIndice);
 
     int rrnRaiz;
@@ -174,7 +174,7 @@ int insertIndice(FILE *fileIndice, int chave, int ptrDados){
     if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, promoDeBaixo);
 
     //atualiza o status de consistência
-    fseek(fileIndice, 0, SEEK_SET);
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
     char consistente = '1';
     fwrite(&consistente, sizeof(char), 1, fileIndice);
     return 1;
@@ -190,13 +190,16 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
     int inicioNo = TAM_BTREE_CABECALHO + rrnNoAtual * TAM_NO;
     fseek(fileIndice, inicioNo, SEEK_SET);
 
-    No *no = incializarNo();
+    No *no = inicializarNo();
     lerNo(fileIndice, no);
 
     int subArvore;
     int dummy; //não vai ser utilizado
     bool encontrou = encontrarChave(no, chave, &subArvore, &dummy);
-    if(encontrou) return ERRO_DE_INSERCAO;
+    if(encontrou) {
+        free(no);
+        return ERRO_DE_INSERCAO;
+    }
 
     ElementoIndice promoDeBaixo;
     int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo);
@@ -220,11 +223,11 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
         escreverNo(fileIndice, novoNo);
 
         //atualiza o número de nós da árvore
-        fseek(fileIndice, 13, SEEK_SET);
+        fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
         int nroNos;
         fread(&nroNos, sizeof(int), 1, fileIndice);
         nroNos++;
-        fseek(fileIndice, 13, SEEK_SET);
+        fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
         fwrite(&nroNos, sizeof(int), 1, fileIndice);
         return PROMOCAO;
     }
@@ -367,7 +370,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
     }
 
     // esvaziamento de raiz tratado somente após a remoção recursiva para evitar casos de underflow pendente na raiz
-    No *raiz = incializarNo();
+    No *raiz = inicializarNo();
     fseek(fileIndice, TAM_BTREE_CABECALHO + rrnRaiz * TAM_NO, SEEK_SET);
     lerNo(fileIndice, raiz);
 
@@ -381,7 +384,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
 
             apagarNo(fileIndice, rrnRaiz);
             
-            No *nRaiz = incializarNo();
+            No *nRaiz = inicializarNo();
             fseek(fileIndice, TAM_BTREE_CABECALHO + novaRaiz * TAM_NO, SEEK_SET);
             lerNo(fileIndice, nRaiz);
             
@@ -406,7 +409,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
 int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
     if (rrnAtual == -1) return CHAVE_NAO_ENCONTRADA;
 
-    No *noAtual = incializarNo();
+    No *noAtual = inicializarNo();
     fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET);
     lerNo(fileIndice, noAtual);
 
@@ -428,7 +431,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
         } else {
             // Substituição pela chave sucessora em nós internos
             int rrnSucessor = noAtual->P[pos+1];
-            No *sucessor = incializarNo();
+            No *sucessor = inicializarNo();
             fseek(fileIndice, TAM_BTREE_CABECALHO + rrnSucessor * TAM_NO, SEEK_SET);
             lerNo(fileIndice, sucessor);
             
@@ -487,14 +490,14 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
 void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFilho) {
     // Carrega o nó em underflow e seus irmãos adjacentes (se existirem)
     int rrnAtual = pai->P[indicePonteiroFilho]; // RRN do nó que está em underflow
-    No *atual = incializarNo(); 
+    No *atual = inicializarNo(); 
     fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); 
     lerNo(fileIndice, atual); // nó em underflow
     
     No *irmEsq = NULL; int rrnIrmEsq = -1;
     if (indicePonteiroFilho > 0) {
         rrnIrmEsq = pai->P[indicePonteiroFilho - 1]; 
-        irmEsq = incializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); 
+        irmEsq = inicializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); 
         lerNo(fileIndice, irmEsq);
     }
 
@@ -504,7 +507,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
     // Carrega o irmão direito somente se existir, para evitar leituras desnecessárias
     if (indicePonteiroFilho < pai->nroChaves) {
         rrnIrmDir = pai->P[indicePonteiroFilho + 1]; 
-        irmDir = incializarNo(); 
+        irmDir = inicializarNo(); 
         fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); 
         lerNo(fileIndice, irmDir);
     }

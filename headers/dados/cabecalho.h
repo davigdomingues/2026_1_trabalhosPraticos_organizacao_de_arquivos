@@ -4,6 +4,14 @@
 #include <stdio.h>
 #include <stdbool.h>
 #define TAM_CABECALHO 17
+/*
+    Se der tempo, talvez podemos implementar:
+    #define DADOS_OFF_STATUS 0
+    #define DADOS_OFF_TOPO 1
+    #define DADOS_OFF_PROXRRN 5
+    #define DADOS_OFF_NROESTACOES 9
+    #define DADOS_OFF_NROPARES 13
+*/
 
 typedef struct Cabecalho {
     char status;

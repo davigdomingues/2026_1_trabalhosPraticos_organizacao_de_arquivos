@@ -10,7 +10,6 @@
 #define NO_INTERMEDIARIO 1 
 #define NO_NAO_INICIALIZADO 10
 #define NRO_MAX_CHAVES 3
-
 typedef struct No {
     int proximo;
     int tipoNo;
@@ -27,8 +26,7 @@ typedef struct {
     int filhoDir;
 } ElementoIndice;
 
-
-No *incializarNo();
+No *inicializarNo();
 void lerNo(FILE *fileIndice, No *no);
 bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
 bool insereOrdenado(No *no, ElementoIndice elem);

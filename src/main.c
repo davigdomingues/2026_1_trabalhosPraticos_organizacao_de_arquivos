@@ -8,6 +8,7 @@
 #include "../headers/indice/btree_operacoes.h"
 #include "../headers/fornecidas.h"
 #include "../headers/dados/registro.h"
+#include "../headers/dados/cabecalho.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,7 +21,7 @@
 
 
 bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEstacao){
-    fseek(fileDados, 17, SEEK_SET);
+    fseek(fileDados, TAM_CABECALHO, SEEK_SET);
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));
     if(!reg){
@@ -114,7 +115,6 @@ bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEs
 
     return true;
 }
-
 
 /** @brief lê os pares campo-valor da entrada padrão e armazená-los em um array de CampoValor
  * 
