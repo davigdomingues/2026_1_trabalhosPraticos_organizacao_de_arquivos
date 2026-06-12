@@ -43,7 +43,7 @@ void lerNo(FILE *fileIndice, No *no){
 }
 
 No *criarNo(FILE *fileIndice, int *novoRRN){
-    fseek(fileIndice, 5, SEEK_SET);
+    fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
 
     int topo;
     fread(&topo, sizeof(int), 1, fileIndice);
@@ -53,14 +53,13 @@ No *criarNo(FILE *fileIndice, int *novoRRN){
 
     if(topo == -1){
         *novoRRN = proxRRN;
-
         proxRRN++;
-        fseek(fileIndice, 9, SEEK_SET);
+        fseek(fileIndice, BTREE_OFF_PROXRRN, SEEK_SET);
         fwrite(&proxRRN, sizeof(int), 1, fileIndice);
     } else {
         //reaproveita um nó removido logicamente
         *novoRRN = topo;
-        int inicioNoRemovido = TAM_BTREE_CABECALHO + topo * TAM_NO;
+        int inicioNoRemovido = BTREE_NO_INICIO(topo);
 
         //lê o novo topo
         int novoTopo;
@@ -68,7 +67,7 @@ No *criarNo(FILE *fileIndice, int *novoRRN){
         fread(&novoTopo, sizeof(int), 1, fileIndice);
         
         //atualiza o topo da pilha de removidos no cabeçalho
-        fseek(fileIndice, 5, SEEK_SET);
+        fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
         fwrite(&novoTopo, sizeof(int), 1, fileIndice);
     }
     return inicializarNo();
@@ -208,7 +207,7 @@ void apagarNo(FILE *fileIndice, int rrnNoParaApagar) {
     fread(&topoAtual, sizeof(int), 1, fileIndice);
 
     // Altera apenas o removido e o encadeamento (mantém os bytes antigos intactos)
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnNoParaApagar * TAM_NO, SEEK_SET);
+    fseek(fileIndice, BTREE_NO_INICIO(rrnNoParaApagar), SEEK_SET);
     char removido = '1';
     fwrite(&removido, sizeof(char), 1, fileIndice);
     fwrite(&topoAtual, sizeof(int), 1, fileIndice);

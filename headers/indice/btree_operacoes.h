@@ -10,7 +10,7 @@
 #define PROMOCAO 1
 #define SEM_PROMOCAO 0
 #define ERRO_DE_INSERCAO -1
-#define MIN_CHAVES 1
+#define MIN_CHAVES 1 // Em uma Árvore de ordem 4, mínimo é ceil(4/2) - 1 = 1
 #define SUCESSO 1
 #define CHAVE_NAO_ENCONTRADA 0
 #define UNDERFLOW_PENDENTE 2

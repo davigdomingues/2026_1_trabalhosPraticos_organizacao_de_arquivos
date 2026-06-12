@@ -10,6 +10,8 @@
 #define NO_INTERMEDIARIO 1 
 #define NO_NAO_INICIALIZADO 10
 #define NRO_MAX_CHAVES 3
+#define BTREE_NO_INICIO(rrn) (TAM_BTREE_CABECALHO + (rrn) * TAM_NO) // Macro para calcular o deslocamento inicial de um nó dado seu RRN
+
 typedef struct No {
     int proximo;
     int tipoNo;

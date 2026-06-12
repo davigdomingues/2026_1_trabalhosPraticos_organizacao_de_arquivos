@@ -30,22 +30,22 @@ bool lerStatusCabecalho(const char *nomeArquivo, char *statusOut) {
 
 
 void atualizarStatus(FILE *file, char status, bool seek){
-    if(seek) fseek(file, 0, SEEK_SET);
+    if(seek) fseek(file, DADOS_OFF_STATUS, SEEK_SET);
     fwrite(&status, sizeof(char), 1, file);
 }
 
 void atualizarProxRRN(FILE *file, int proxRRN, bool seek){
-    if(seek) fseek(file, 5, SEEK_SET);
+    if(seek) fseek(file, DADOS_OFF_PROXRRN, SEEK_SET);
     fwrite(&proxRRN, sizeof(int), 1, file);
 }
 
 void atualizarNroEstacoes(FILE *file, int nroEstacoes, bool seek){
-    if(seek) fseek(file, 9, SEEK_SET);
+    if(seek) fseek(file, DADOS_OFF_NROESTACOES, SEEK_SET);
     fwrite(&nroEstacoes, sizeof(int), 1, file);
 }
 
 void atualizarNroParesEstacoes(FILE *file, int nroParesEstacao, bool seek){
-    if(seek) fseek(file, 13, SEEK_SET);
+    if(seek) fseek(file, DADOS_OFF_NROPARES, SEEK_SET);
     fwrite(&nroParesEstacao, sizeof(int), 1, file);
 }
 
@@ -67,11 +67,11 @@ void recalcularContadores(FILE *file) {
         
         int codEstacao, codProxEstacao, tamNomeEstacao, tamNomeLinha;
         
-        fseek(file, 4, SEEK_CUR); // pula próximo
+        fseek(file, DADOS_OFF_PROXRRN - 1, SEEK_CUR); // pula próximo
         fread(&codEstacao, sizeof(int), 1, file);
-        fseek(file, 4, SEEK_CUR); // pula codLinha
+        fseek(file, DADOS_OFF_PROXRRN - 1, SEEK_CUR); // pula codLinha
         fread(&codProxEstacao, sizeof(int), 1, file);
-        fseek(file, 12, SEEK_CUR); // pula distProxEstacao, codLinhaIntegra, codEstIntegra
+        fseek(file, DADOS_OFF_NROPARES - 1, SEEK_CUR); // pula distProxEstacao, codLinhaIntegra, codEstIntegra
         
         fread(&tamNomeEstacao, sizeof(int), 1, file);
         char *nomeEstacao = NULL;
@@ -105,7 +105,7 @@ void recalcularContadores(FILE *file) {
     int nroPares = hashmap_size(mapParesEstacoes);
 
     // escreve os novos contadores ajustados no cabeçalho
-    fseek(file, 9, SEEK_SET); // o byte offset 9 é exatamente onde começa o nroEstacoes
+    fseek(file, DADOS_OFF_NROESTACOES, SEEK_SET); // o byte offset 9 é exatamente onde começa o nroEstacoes
     fwrite(&nroEstacoes, sizeof(int), 1, file);
     fwrite(&nroPares, sizeof(int), 1, file);
 

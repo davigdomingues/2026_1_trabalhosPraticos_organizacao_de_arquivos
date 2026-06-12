@@ -139,7 +139,7 @@ void selectAll(char *arquivoEntrada){
         reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
         reg->tamNomeLinha = 0; reg->nomeLinha   = "";
 
-        fseek(file, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
+        fseek(file, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
 
         //lê os campos do registro e armazena na struct
         fread(&reg->codEstacao, sizeof(int), 1, file);
@@ -318,7 +318,7 @@ bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
 
     // se todas as marcações de removido foram feitas com sucesso, atualiza o topo da lista de removidos no cabeçalho para apontar para o primeiro registro removido
     if (ok) {
-        if (fseek(file, 1, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) ok = false;
+        if (fseek(file, DADOS_OFF_TOPO, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) ok = false;
     }
 
     // caso haja algum erro durante o processo de remoção
@@ -423,7 +423,7 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
             } else { // escreve o registro no lugar do removido
                 escreverReg(fileDados, &reg);
                 // atualiza topo para o próximo da lista de removidos
-                if (fseek(fileDados, 1, SEEK_SET) != 0 || fwrite(&proximoTopo, sizeof(int), 1, fileDados) != 1) ok = false;
+                if (fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET) != 0 || fwrite(&proximoTopo, sizeof(int), 1, fileDados) != 1) ok = false;
             }
 
         } else {
@@ -441,7 +441,7 @@ bool insert(char *arquivoDados, char *arquivoIndice, CampoValor *valores, int mV
         }
 
         // salva o proxRRN atualizado no cabeçalho (sempre salva, pois ele pode ter mudado no else acima)
-        fseek(fileDados, 5, SEEK_SET);
+        fseek(fileDados, DADOS_OFF_PROXRRN, SEEK_SET);
         fwrite(&proxRRN, sizeof(int), 1, fileDados);
 
         // atualiza apenas os contadores do cabeçalho (sem recalcular varrendo o arquivo)

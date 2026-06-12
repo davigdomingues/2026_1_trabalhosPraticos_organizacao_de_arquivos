@@ -7,11 +7,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MIN_CHAVES 1 // Em uma Árvore de ordem 4, mínimo é ceil(4/2) - 1 = 1
-#define SUCESSO 1
-#define CHAVE_NAO_ENCONTRADA 0
-#define UNDERFLOW_PENDENTE 2
-
 static bool escreverCabecalhoIndice(FILE *fileIndice, char status, int noRaiz, int topo, int proxRRN, int nroNos) {
     if (!fileIndice) return false;
 
@@ -88,7 +83,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
 bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados){
     if(rrnNoAtual == -1) return false;
 
-    int inicioNo = TAM_BTREE_CABECALHO + rrnNoAtual * TAM_NO;
+    int inicioNo = BTREE_NO_INICIO(rrnNoAtual);
     fseek(fileIndice, inicioNo, SEEK_SET);
 
     No *no = inicializarNo();
@@ -153,10 +148,9 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
     fwrite(&nroNos, sizeof(int), 1, fileIndice);
 
     //salva a nova raiz no arquivo
-    int inicioNovaRaiz = TAM_BTREE_CABECALHO + rrnNovaRaiz * TAM_NO;
+    int inicioNovaRaiz = BTREE_NO_INICIO(rrnNovaRaiz);
     fseek(fileIndice, inicioNovaRaiz, SEEK_SET);
     escreverNo(fileIndice, novaRaiz);
-
         
     free(novaRaiz);
 }
@@ -187,7 +181,7 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
         promoPraCima->filhoDir = -1;
         return PROMOCAO;
     }
-    int inicioNo = TAM_BTREE_CABECALHO + rrnNoAtual * TAM_NO;
+    int inicioNo = BTREE_NO_INICIO(rrnNoAtual);
     fseek(fileIndice, inicioNo, SEEK_SET);
 
     No *no = inicializarNo();
@@ -218,7 +212,7 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
         fseek(fileIndice, inicioNo, SEEK_SET);
         escreverNo(fileIndice, no);
 
-        int inicioNovoNo = TAM_BTREE_CABECALHO + promoPraCima->filhoDir * TAM_NO;
+        int inicioNovoNo = BTREE_NO_INICIO(promoPraCima->filhoDir);
         fseek(fileIndice, inicioNovoNo, SEEK_SET);
         escreverNo(fileIndice, novoNo);
 
@@ -371,7 +365,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
 
     // esvaziamento de raiz tratado somente após a remoção recursiva para evitar casos de underflow pendente na raiz
     No *raiz = inicializarNo();
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnRaiz * TAM_NO, SEEK_SET);
+    fseek(fileIndice, BTREE_NO_INICIO(rrnRaiz), SEEK_SET);
     lerNo(fileIndice, raiz);
 
     if (raiz->nroChaves == 0) {
@@ -385,13 +379,13 @@ bool removerChaveIndice(FILE *fileIndice, int chave) {
             apagarNo(fileIndice, rrnRaiz);
             
             No *nRaiz = inicializarNo();
-            fseek(fileIndice, TAM_BTREE_CABECALHO + novaRaiz * TAM_NO, SEEK_SET);
+            fseek(fileIndice, BTREE_NO_INICIO(novaRaiz), SEEK_SET);
             lerNo(fileIndice, nRaiz);
             
             // Força a nova raiz a ter a flag 0, independentemente de ser folha ou não
             nRaiz->tipoNo = NO_RAIZ;
             
-            fseek(fileIndice, TAM_BTREE_CABECALHO + novaRaiz * TAM_NO, SEEK_SET);
+            fseek(fileIndice, BTREE_NO_INICIO(novaRaiz), SEEK_SET);
             escreverNo(fileIndice, nRaiz);
             free(nRaiz);
 
@@ -410,7 +404,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
     if (rrnAtual == -1) return CHAVE_NAO_ENCONTRADA;
 
     No *noAtual = inicializarNo();
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET);
+    fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET);
     lerNo(fileIndice, noAtual);
 
     int pos = 0;
@@ -432,12 +426,12 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
             // Substituição pela chave sucessora em nós internos
             int rrnSucessor = noAtual->P[pos+1];
             No *sucessor = inicializarNo();
-            fseek(fileIndice, TAM_BTREE_CABECALHO + rrnSucessor * TAM_NO, SEEK_SET);
+            fseek(fileIndice, BTREE_NO_INICIO(rrnSucessor), SEEK_SET);
             lerNo(fileIndice, sucessor);
             
             while (sucessor->P[0] != -1) {
                 rrnSucessor = sucessor->P[0];
-                fseek(fileIndice, TAM_BTREE_CABECALHO + rrnSucessor * TAM_NO, SEEK_SET);
+                fseek(fileIndice, BTREE_NO_INICIO(rrnSucessor), SEEK_SET);
                 lerNo(fileIndice, sucessor);
             }
             
@@ -447,7 +441,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
 
             noAtual->C[pos] = chaveSucessora;
             noAtual->Pr[pos] = ponteiroDadosSucessor;
-            fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET);
+            fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET);
             escreverNo(fileIndice, noAtual);
 
             // Chamada recursiva para apagar a sucessora promovida
@@ -474,7 +468,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave) {
         }
     }
 
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET);
+    fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET);
     escreverNo(fileIndice, noAtual);
 
     int chavesAtuais = noAtual->nroChaves;
@@ -497,7 +491,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
     No *irmEsq = NULL; int rrnIrmEsq = -1;
     if (indicePonteiroFilho > 0) {
         rrnIrmEsq = pai->P[indicePonteiroFilho - 1]; 
-        irmEsq = inicializarNo(); fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); 
+        irmEsq = inicializarNo(); fseek(fileIndice, BTREE_NO_INICIO(rrnIrmEsq), SEEK_SET); 
         lerNo(fileIndice, irmEsq);
     }
 
@@ -508,7 +502,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
     if (indicePonteiroFilho < pai->nroChaves) {
         rrnIrmDir = pai->P[indicePonteiroFilho + 1]; 
         irmDir = inicializarNo(); 
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); 
+        fseek(fileIndice, BTREE_NO_INICIO(rrnIrmDir), SEEK_SET); 
         lerNo(fileIndice, irmDir);
     }
 
@@ -559,9 +553,9 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         }
 
         // Escreve as alterações de volta no arquivo para o pai, o nó em underflow e o irmão direito
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmDir * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmDir);
+        fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
+        fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET); escreverNo(fileIndice, atual);
+        fseek(fileIndice, BTREE_NO_INICIO(rrnIrmDir), SEEK_SET); escreverNo(fileIndice, irmDir);
 
         free(atual); 
         
@@ -616,9 +610,9 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         }
         atual->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
 
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnAtual * TAM_NO, SEEK_SET); escreverNo(fileIndice, atual);
-        fseek(fileIndice, TAM_BTREE_CABECALHO + rrnIrmEsq * TAM_NO, SEEK_SET); escreverNo(fileIndice, irmEsq);
+        fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
+        fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET); escreverNo(fileIndice, atual);
+        fseek(fileIndice, BTREE_NO_INICIO(rrnIrmEsq), SEEK_SET); escreverNo(fileIndice, irmEsq);
 
         free(atual); 
         free(irmEsq); 
@@ -668,8 +662,8 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     pai->Pr[pai->nroChaves] = -1;
     pai->P[pai->nroChaves + 1] = -1;
 
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnEsq * TAM_NO, SEEK_SET); escreverNo(fileIndice, esq);
-    fseek(fileIndice, TAM_BTREE_CABECALHO + rrnPai * TAM_NO, SEEK_SET); escreverNo(fileIndice, pai);
+    fseek(fileIndice, BTREE_NO_INICIO(rrnEsq), SEEK_SET); escreverNo(fileIndice, esq);
+    fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
     
     apagarNo(fileIndice, rrnDir); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
 }
@@ -740,7 +734,7 @@ bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *
             long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG;
             
             // Lê a chave (codEstacao) da estrutura do registro antes de marcar como removido e pula caso flag removido (1 byte) + proxRRN (4 bytes)
-            fseek(fileDados, inicioRegistro + 5, SEEK_SET); 
+            fseek(fileDados, inicioRegistro + DADOS_OFF_PROXRRN, SEEK_SET); 
             int chaveParaRemover;
             if (fread(&chaveParaRemover, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
 
@@ -766,7 +760,7 @@ bool deleteWhereIndexado(char *arquivoEntrada, char *arquivoIndice, CampoValor *
             }
         }
         if (ok) { // Após a remoção lógica de todos os registros que batem com os filtros, atualiza o topo da lista de removidos no arquivo de dados para apontar para o primeiro registro logicamente removido encontrado durante o processo
-            fseek(fileDados, 1, SEEK_SET);
+            fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
             fwrite(&topoDados, sizeof(int), 1, fileDados);
         }
     }
