@@ -190,6 +190,8 @@ int main(){
     char *arquivoIndice = NULL;
     FILE *fileDados = NULL;
     FILE *fileIndice = NULL;
+    int nroEstacoes;
+    int nroParesEstacoes;
     bool ok = false;
     switch (op) {
         case 1: // CREATE
@@ -309,6 +311,12 @@ int main(){
                 if (ok && !insert(fileDados, NULL, valores, MAX_PARES, &dummy)) ok = false;
             }
 
+            calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
+            fseek(fileDados, 9, SEEK_SET);
+            fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
+            fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
+
+            fclose(fileDados);
             if (ok) BinarioNaTela(arquivoDados);
             break;
         case 6: // UPDATE
@@ -462,8 +470,6 @@ int main(){
                 bool sucesso = insert(fileDados, fileIndice, valores, MAX_PARES, &nroNos);
             }
 
-            int nroEstacoes;
-            int nroParesEstacoes;
             calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
             fseek(fileDados, 9, SEEK_SET);
             fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
@@ -473,7 +479,7 @@ int main(){
             fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
             fwrite(&nroNos, sizeof(int), 1, fileIndice);
 
-            if(fileDados) fclose(fileDados);
+            fclose(fileDados);
             if(fileIndice) fclose(fileIndice);
 
             BinarioNaTela(arquivoDados);
