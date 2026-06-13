@@ -476,7 +476,7 @@ int main(){
 
             // Leitura padrão do status do arquivo de dados
             char statusDadosCreate;
-            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET); // Garante que a leitura do status seja feita no local correto do cabeçalho
             if (fread(&statusDadosCreate, sizeof(char), 1, fileDados) != 1 || statusDadosCreate != '1') {
                 printf("Falha no processamento do arquivo.\n");
                 fclose(fileDados); fclose(fileIndice);
@@ -665,18 +665,19 @@ int main(){
             fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
             fwrite(&statusInconsistente, sizeof(char), 1, fileIndice);
 
-
             // Recuperação do número de nós do arquivo de índice para controle durante as remoções indexadas
             int nroNosRemocao;
             fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
             fread(&nroNosRemocao, sizeof(int), 1, fileIndice);
 
+            // Leitura do número de operações de remoção indexada a serem realizadas
             int nRemocoesIdx = 0;
             scanf("%d", &nRemocoesIdx);
 
             CampoValor *paresDeleteIdx = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             ok = true;
 
+            // Loop das operações de remoção indexada, em que cada operação pode ter um número diferente de pares campo-valor, e a memória alocada para os pares é liberada a cada iteração para evitar acúmulo
             for (int i = 0; i < nRemocoesIdx; i++) {
                 int mPares = 0;
                 scanf("%d", &mPares);
