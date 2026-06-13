@@ -26,5 +26,4 @@ bool create(FILE *csv, FILE *fileBin);
  */
 bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice);
 
-
 #endif

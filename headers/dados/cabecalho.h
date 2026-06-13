@@ -4,12 +4,12 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-#define TAM_CABECALHO 17
-#define DADOS_OFF_STATUS 0
-#define DADOS_OFF_TOPO 1
-#define DADOS_OFF_PROXRRN 5
-#define DADOS_OFF_NROESTACOES 9
-#define DADOS_OFF_NROPARES 13
+#define TAM_CABECALHO 17 // tamanho fixo (em bytes) que o cabeçalho ocupa no arquivo, calculado a partir dos tipos dos campos do cabeçalho
+#define DADOS_OFF_STATUS 0 // offset do campo status no arquivo de dados
+#define DADOS_OFF_TOPO 1 // offset do campo topo no arquivo de dados
+#define DADOS_OFF_PROXRRN 5 // offset do campo proxRRN no arquivo de dados
+#define DADOS_OFF_NROESTACOES 9 // offset do campo nroEstacoes no arquivo de dados
+#define DADOS_OFF_NROPARES 13 // offset do campo nroParesEstacao no arquivo de dados
 
 typedef struct Cabecalho {
     char status;

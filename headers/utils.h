@@ -25,7 +25,6 @@ typedef enum CampoRegistroId {
 	CAMPO_COD_EST_INTEGRA = 7
 } CampoRegistroId;
 
-
 /**
  * @brief libera a memória alocada dinamicamente de uma chave string de um hashmap
  * 
@@ -37,7 +36,6 @@ typedef enum CampoRegistroId {
  */
 int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr);
 
-
 /**
  * @brief compara o valor especificado em uma busca com o valor (int) de um registro.
  * 
@@ -48,7 +46,6 @@ int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr);
  * @return false os valores não são iguais ou esse campo não tem um valor especificado na busca
  */
 bool verificarMatchInt(int index, char *valorQuery, int valorReg);
-
 
 /**
  * @brief compara o valor especificado em uma busca com o valor (string) de um registro.
@@ -133,6 +130,12 @@ bool aplicarParEmRegistro(Registro *reg, CampoValor *par);
  */
 bool aplicarParesEmRegistro(Registro *reg, CampoValor *pares, int mPares);
 
+/**
+ * @brief ordena um array de ElementoIndice em ordem crescente de chave usando o algoritmo de ordenação por inserção
+ * 
+ * @param arr array de ElementoIndice a ser ordenado
+ * @param tam tamanho do array a ser ordenado
+ */
 void insertionSort(ElementoIndice arr[], int tam);
 
 #endif

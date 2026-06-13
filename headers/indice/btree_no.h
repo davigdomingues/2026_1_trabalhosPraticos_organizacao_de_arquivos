@@ -4,12 +4,12 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define TAM_NO 53
-#define NO_FOLHA -1 
-#define NO_RAIZ 0 
-#define NO_INTERMEDIARIO 1 
-#define NO_NAO_INICIALIZADO 10
-#define NRO_MAX_CHAVES 3
+#define TAM_NO 53 // 4 bytes para proximo + 4 bytes para tipoNo + 4 bytes para nroChaves + (3 chaves * 4 bytes) + (3 ponteiros de dados * 4 bytes) + (4 ponteiros de filhos * 4 bytes) + 1 byte para removido = 53 bytes
+#define NO_FOLHA -1 // Valor especial para indicar que um nó é folha
+#define NO_RAIZ 0 // Valor especial para indicar que um nó é a raiz da árvore
+#define NO_INTERMEDIARIO 1 // Valor especial para indicar que um nó é intermediário
+#define NO_NAO_INICIALIZADO 10 // Valor especial para indicar que um nó não foi inicializado
+#define NRO_MAX_CHAVES 3 // Ordem 4, ou seja, no máximo 3 chaves por nó
 #define BTREE_NO_INICIO(rrn) (TAM_BTREE_CABECALHO + (rrn) * TAM_NO) // Macro para calcular o deslocamento inicial de um nó dado seu RRN
 
 typedef struct No {
@@ -28,10 +28,28 @@ typedef struct {
     int filhoDir;
 } ElementoIndice;
 
+/**
+ * @brief Inicializa um nó da Árvore-B, alocando memória e definindo valores padrão para seus campos
+ * @return No* ponteiro para o nó inicializado
+ */
 No *inicializarNo();
+
+/**
+ * @brief Lê um nó da Árvore-B a partir do arquivo de índice, dado seu RRN, e preenche a estrutura de nó fornecida
+ * @param fileIndice ponteiro para o arquivo de índice
+ * @param no ponteiro para a estrutura de nó que será preenchida com os dados lidos do arquivo
+ */
 void lerNo(FILE *fileIndice, No *no);
+
 bool escreverNo(FILE *file, No *no);
 No *criarNo(FILE *fileIndice, int *novoRRN);
+
+/**
+ * @brief Apaga um nó da Árvore-B, liberando sua memória e atualizando o contador de nós no cabeçalho do arquivo de índice
+ * @param fileIndice ponteiro para o arquivo de índice
+ * @param rrnNoParaApagar RRN do nó que deve ser apagado
+ * @param nroNos ponteiro para o contador de nós da Árvore-B, que será atualizado conforme nós são removidos
+ */
 void apagarNo(FILE *fileIndice, int rrnNoParaApagar, int *nroNos);
 
 #endif

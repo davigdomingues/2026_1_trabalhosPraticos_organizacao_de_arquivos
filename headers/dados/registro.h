@@ -4,7 +4,8 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define TAM_REG 80
+#define TAM_REG 80 // tamanho fixo (em bytes) que um registro ocupa no arquivo
+
 // tamanho fixo (em bytes) que um registro ocupa sem os dois campos string.
 // 1 char removido + 9 inteiros (inclui tamNomeEstacao e tamNomeLinha)
 #define TAM_FIXO_REG ((int)sizeof(char) + 9 * (int)sizeof(int))

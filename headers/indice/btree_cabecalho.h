@@ -21,11 +21,11 @@
     permite verificar rapidamente se a árvore-B está consistente antes de tentar acessar os outros campos.
 */
 
-#define BTREE_OFF_STATUS 0
-#define BTREE_OFF_NORAIZ 1
-#define BTREE_OFF_TOPO 5
-#define BTREE_OFF_PROXRRN 9
-#define BTREE_OFF_NRONOS 13
+#define BTREE_OFF_STATUS 0 // 1 byte para status
+#define BTREE_OFF_NORAIZ 1 // 4 bytes para noRaiz
+#define BTREE_OFF_TOPO 5 // 4 bytes para topo
+#define BTREE_OFF_PROXRRN 9 // 4 bytes para proxRRN
+#define BTREE_OFF_NRONOS 13 // 4 bytes para nroNos
 
 typedef struct CabecalhoIndice {
     int noRaiz;

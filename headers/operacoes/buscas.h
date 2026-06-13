@@ -13,7 +13,6 @@
  */
 void selectAll(FILE *file);
 
-
 /**
  * @brief Dado um arquivo binário, imprime os registros que satisfazem os critérios de busca ou retorna o rrn do primeiro registro que os satisfizer.
  * 

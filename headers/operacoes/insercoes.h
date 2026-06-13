@@ -16,7 +16,17 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtu
 void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima);
 bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
 bool insereOrdenado(No *no, ElementoIndice elem);
+
+/** @brief Dado um arquivo binário, insere um novo registro com os valores especificados.
+ * 
+ * @param fileIndice ponteiro para o arquivo de índice
+ * @param no ponteiro para o nó onde a inserção deve ocorrer
+ * @param overflowElem elemento que causou o overflow e deve ser inserido
+ * @param elemASerPromovido elemento que deve ser promovido para o nó pai em caso de overflow
+ * @return No* ponteiro para o novo nó criado em caso de split, ou NULL caso contrário
+ */
 No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *elemASerPromovido);
+
 /** @brief Dado um arquivo binário, insere um novo registro com os valores especificados.
  * 
  * @param arquivoEntrada caminho para o arquivo binário de entrada
