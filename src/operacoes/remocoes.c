@@ -1,323 +1,77 @@
-#include "../../headers/indice/btree_operacoes.h"
-#include "../../headers/indice/btree_cabecalho.h"
-#include "../../headers/indice/btree_no.h"
+#include "../../headers/operacoes/remocoes.h"
+#include "../../headers/operacoes/buscas.h"
+#include "../../headers/dados/registro.h"
 #include "../../headers/dados/cabecalho.h"
-#include "../../headers/dados/operacoes.h"
-#include <limits.h>
-#include <stdio.h>
+#include "../../headers/indice/btree_cabecalho.h"
+#include "../../headers/utils.h"
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-static bool escreverCabecalhoIndice(FILE *fileIndice, char status, int noRaiz, int topo, int proxRRN, int nroNos) {
-    if (!fileIndice) return false;
 
-    if (fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET) != 0) return false;
-    if (fwrite(&status, sizeof(char), 1, fileIndice) != 1) return false;
-    if (fwrite(&noRaiz, sizeof(int), 1, fileIndice) != 1) return false;
-    if (fwrite(&topo, sizeof(int), 1, fileIndice) != 1) return false;
-    if (fwrite(&proxRRN, sizeof(int), 1, fileIndice) != 1) return false;
-    if (fwrite(&nroNos, sizeof(int), 1, fileIndice) != 1) return false;
-
-    return true;
-}
-
-static bool atualizarStatusIndice(FILE *fileIndice, char status) {
-    if (!fileIndice) return false;
-
-    if (fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET) != 0) return false;
-    if (fwrite(&status, sizeof(char), 1, fileIndice) != 1) return false;
-
-    return true;
-}
-
-int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print){
-    int chave = atoi(pares[CAMPO_COD_ESTACAO]->valor);
-    int rrnRaiz;
-    fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
-    fread(&rrnRaiz, sizeof(int), 1, fileIndice);
-
-    int rrnRes;
-    int ponteiroRes;
-    bool encontrou = buscaRecursiva(fileIndice, chave, rrnRaiz, &rrnRes, &ponteiroRes);
-
-    if(!encontrou){
-        if(print){
-            printf("Registro inexistente.\n");
-            printf("\n");
-        }
-        return -1;
-    }
-    else {
-        fseek(fileDados, ponteiroRes, SEEK_SET);
-
-        char removido;
-        fread(&removido, sizeof(char), 1, fileDados);
-        if(removido == '1'){
-            if(print){
-                printf("Registro inexistente.\n");
-                printf("\n");
-            }
-            return -1;
-        }
-
-        pares[CAMPO_COD_ESTACAO] = NULL; //retira codEstacao dos criterios de busca
-        Registro *reg = (Registro*) malloc(sizeof(Registro));
-        int numMatches = confereCriteriosBusca(fileDados, reg, pares);
-
-        //numFiltros-1 porque o codEstacao foi retirado dos critérios de busca
-        if(numMatches != numFiltros-1){
-            if(print){
-                printf("Registro inexistente.\n");
-                printf("\n");
-            }
-            return -1;
-        }
-
-        if(print){
-            printReg(reg);
-            printf("\n");
-        }
-        return ponteiroRes;
-    }
-}
-
-bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados){
-    if(rrnNoAtual == -1) return false;
-
-    int inicioNo = BTREE_NO_INICIO(rrnNoAtual);
-    fseek(fileIndice, inicioNo, SEEK_SET);
-
-    No *no = inicializarNo();
-    lerNo(fileIndice, no);
-
-    int subArvore;
-    bool encontrou = encontrarChave(no, chave, &subArvore, ponteiroDados);
-    if(!encontrou){
-        bool res = buscaRecursiva(fileIndice, chave, subArvore, rrnNoRes, ponteiroDados);
-        free(no);
-        return res;
+bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
+    // para cada registro que deve ser removido, acessa-se o arquivo e se marca como removido, além de atualizar a lista de removidos e os contadores do cabeçalho
+    FILE *file = fopen(arquivoEntrada, "r+b");
+    if(!file){
+        printf("Falha no processamento do arquivo.\n");
+        return false;
     }
 
-    *rrnNoRes = rrnNoAtual;
-    return true;
-}
+    char status;
+    int topo;
 
-No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *promoPraCima){
-    int rrnNovoNo;
-    No *novoNo = criarNo(fileIndice, &rrnNovoNo);
-
-    // Se a página que estourou era a RAIZ (0), ela perde a "coroa".
-    if (no->tipoNo == NO_RAIZ) {
-        no->tipoNo = NO_INTERMEDIARIO;
-        novoNo->tipoNo = NO_INTERMEDIARIO;
-    } else {
-        // Se era Folha (-1) ou já era Intermediário (1), apenas copia
-        novoNo->tipoNo = no->tipoNo; 
+    // lê o status e o topo da lista de removidos do cabeçalho
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return false;
     }
 
-    distribuirUniforme(fileIndice, no, novoNo, rrnNovoNo, overflowElem, promoPraCima);
-    return novoNo;
-}
+    atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
 
-void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBaixo, int *nroNos){
-    int rrnNovaRaiz;
-    No *novaRaiz = criarNo(fileIndice, &rrnNovaRaiz);
-
-    novaRaiz->nroChaves = 1;
-    novaRaiz->C[0] = promoDeBaixo.chave;
-    novaRaiz->Pr[0] = promoDeBaixo.ptrDados;
-    novaRaiz->P[0] = rrnRaizAtual;          //filho a esquerda é a raiz antiga
-    novaRaiz->P[1] = promoDeBaixo.filhoDir; //filho a direita é o nó criado no split
-    novaRaiz->tipoNo = NO_RAIZ;
-
-    //atualiza o cabeçalho do arquivo para apontar para o RRN da nova raiz
-    fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); 
-    fwrite(&rrnNovaRaiz, sizeof(int), 1, fileIndice);
-
-    //se este for ser o único nó da árvore, 
-    //quer dizer que é um nó raiz e folha.
-    //por convenção, o tipo é folha
-    if(*nroNos == 0) novaRaiz->tipoNo = NO_FOLHA;
-    (*nroNos)++;
-
-    //salva a nova raiz no arquivo
-    int inicioNovaRaiz = BTREE_NO_INICIO(rrnNovaRaiz);
-    fseek(fileIndice, inicioNovaRaiz, SEEK_SET);
-    escreverNo(fileIndice, novaRaiz);
-        
-    free(novaRaiz);
-}
-
-int insertIndice(FILE *fileIndice, int chave, int ptrDados, int *nroNos){
-    char inconsistente = '0';
-    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
-    fwrite(&inconsistente, sizeof(char), 1, fileIndice);
-
-    int rrnRaiz;
-    fread(&rrnRaiz, sizeof(int), 1, fileIndice);
-
-    ElementoIndice promoDeBaixo;
-    int res = insertIndiceRec(fileIndice, chave, ptrDados, rrnRaiz, &promoDeBaixo, nroNos);
-    if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, promoDeBaixo, nroNos);
-
-    //atualiza o status de consistência
-    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
-    char consistente = '1';
-    fwrite(&consistente, sizeof(char), 1, fileIndice);
-    return 1;
-}
-
-int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, ElementoIndice *promoPraCima, int *nroNovosNos){
-    if(rrnNoAtual == -1){
-        promoPraCima->chave = chave;
-        promoPraCima->ptrDados = ptrDados;
-        promoPraCima->filhoDir = -1;
-        return PROMOCAO;
-    }
-    int inicioNo = BTREE_NO_INICIO(rrnNoAtual);
-    fseek(fileIndice, inicioNo, SEEK_SET);
-
-    No *no = inicializarNo();
-    lerNo(fileIndice, no);
-
-    int subArvore;
-    int dummy; //não vai ser utilizado
-    bool encontrou = encontrarChave(no, chave, &subArvore, &dummy);
-    if(encontrou) {
-        free(no);
-        return ERRO_DE_INSERCAO;
-    }
-
-    ElementoIndice promoDeBaixo;
-    int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo, nroNovosNos);
-
-    if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) return res;
-    else if (no->nroChaves < NRO_MAX_CHAVES){
-        insereOrdenado(no, promoDeBaixo);
-
-        fseek(fileIndice, inicioNo, SEEK_SET);
-        escreverNo(fileIndice, no);
-        return SEM_PROMOCAO;
-    } else {
-
-        No *novoNo = split(fileIndice, no, promoDeBaixo, promoPraCima);
-
-        fseek(fileIndice, inicioNo, SEEK_SET);
-        escreverNo(fileIndice, no);
-
-        int inicioNovoNo = BTREE_NO_INICIO(promoPraCima->filhoDir);
-        fseek(fileIndice, inicioNovoNo, SEEK_SET);
-        escreverNo(fileIndice, novoNo);
-
-        (*nroNovosNos)++;
-        return PROMOCAO;
-    }
-
-    return 0;
-}
-
-bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
-    char statusDados;
+    int rrn = -1;
     bool ok = true;
-    long offsetRegistro;
+    // loop para marcar os registros como removidos e atualizar a lista de removidos no cabeçalho
+    while(true){
+        //busca o próximo registro que satisfaz os critérios de remoção
+        rrn = selectWhere(file, NULL, pares, mPares, rrn+1, true, true); //+1 para não ficar retornando sempre o mesmo rrn
+        if(rrn < 0) break;
 
-    if(!fileDados || !fileIndice) {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
+        long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG; // calcula o byte offset do registro a ser removido, usando o RRN para acessar diretamente
+        if (fseek(file, inicioRegistro, SEEK_SET) != 0) {  // posiciona o ponteiro no início do registro a ser removido
+            ok = false; break; 
+        }
+        char removidoFlag = '1';
+
+        if (fwrite(&removidoFlag, sizeof(char), 1, file) != 1) {  // marca o registro como removido escrevendo '1' no byte de removido
+            ok = false; break; 
+        }
+        
+        if (fwrite(&topo, sizeof(int), 1, file) != 1) {  // escreve o antigo topo da lista de removidos no campo de proxRRN do registro removido, para manter a lista encadeada
+            ok = false; break; 
+        }
+        topo = rrn; // atualiza o topo para o RRN do registro recém-removido, que agora é o primeiro da lista de removidos
+        fseek(file, inicioRegistro + TAM_REG, SEEK_SET);
     }
 
-    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET); // Reposiciona para ler o status do arquivo de dados
-
-    if(fread(&statusDados, sizeof(char), 1, fileDados) != 1 || statusDados != '1') {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
-
-    if(!escreverCabecalhoIndice(fileIndice, '0', -1, -1, 0, 0)) {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
-
-    if(fseek(fileDados, TAM_CABECALHO, SEEK_SET) != 0) {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
-
-    offsetRegistro = TAM_CABECALHO;
-
-    offsetRegistro = TAM_CABECALHO;
-
-    int nroNos = 0;
-    while (1) {
-        char removido;
-        int lixo, chave, tamNomeEstacao, tamNomeLinha;
-        int i;
-
-        if (fread(&removido, sizeof(char), 1, fileDados) != 1) break;
-
-        if (removido == '1') {
-            if (fseek(fileDados, TAM_REG - 1, SEEK_CUR) != 0) {
-                ok = false;
-                break;
-            }
-            offsetRegistro += TAM_REG;
-            continue;
-        }
-
-        if (fread(&lixo, sizeof(int), 1, fileDados) != 1 || fread(&chave, sizeof(int), 1, fileDados) != 1) {
-            ok = false;
-            break;
-        }
-
-        for (i = 0; i < 5; i++) {
-            if (fread(&lixo, sizeof(int), 1, fileDados) != 1) {
-                ok = false;
-                break;
-            }
-        }
-        if (!ok) break;
-
-        if (fread(&tamNomeEstacao, sizeof(int), 1, fileDados) != 1) {
-            ok = false;
-            break;
-        }
-        if (tamNomeEstacao > 0 && fseek(fileDados, tamNomeEstacao, SEEK_CUR) != 0) {
-            ok = false;
-            break;
-        }
-
-        if (fread(&tamNomeLinha, sizeof(int), 1, fileDados) != 1) {
-            ok = false;
-            break;
-        }
-        if (tamNomeLinha > 0 && fseek(fileDados, tamNomeLinha, SEEK_CUR) != 0) {
-            ok = false;
-            break;
-        }
-
-        i = TAM_LIVRE_REG(tamNomeEstacao, tamNomeLinha);
-        if (i > 0 && fseek(fileDados, i, SEEK_CUR) != 0) {
-            ok = false;
-            break;
-        }
-
-        if (insertIndice(fileIndice, chave, (int)offsetRegistro, &nroNos) == ERRO_DE_INSERCAO) {
-            ok = false;
-            break;
-        }
-
-        offsetRegistro += TAM_REG;
-    }
-
+    // se todas as marcações de removido foram feitas com sucesso, atualiza o topo da lista de removidos no cabeçalho para apontar para o primeiro registro removido
     if (ok) {
-        ok = atualizarStatusIndice(fileIndice, '1');
-        fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
-        fwrite(&nroNos, sizeof(int), 1, fileIndice);
+        if (fseek(file, DADOS_OFF_TOPO, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) ok = false;
     }
 
+    // caso haja algum erro durante o processo de remoção
     if (!ok) {
         printf("Falha no processamento do arquivo.\n");
+        fclose(file);
         return false;
     }
+
+    recalcularContadores(file); // atualiza os contadores de estações e pares de estações no cabeçalho após as remoções
+
+    atualizarStatus(file, '1', true); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
+    fclose(file);
 
     return true;
 }

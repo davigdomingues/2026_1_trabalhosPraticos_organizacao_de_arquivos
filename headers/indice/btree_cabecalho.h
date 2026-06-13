@@ -1,9 +1,10 @@
 #ifndef BTREE_CABECALHO_H
 #define BTREE_CABECALHO_H
 
+#include <stdio.h>
 #include <stdbool.h>
-#define TAM_BTREE_CABECALHO 17
 
+#define TAM_BTREE_CABECALHO 17
 /* deslocamentos fixos do registro de cabeçalho da árvore-B:
     status: 1 byte
     noRaiz: 4 bytes
@@ -33,5 +34,8 @@ typedef struct CabecalhoIndice {
     int nroNos;
     char status;
 } CabecalhoIndice;
+
+bool atualizarStatusIndice(FILE *fileIndice, char status);
+bool escreverCabecalhoIndice(FILE *fileIndice, char status, int noRaiz, int topo, int proxRRN, int nroNos);
 
 #endif

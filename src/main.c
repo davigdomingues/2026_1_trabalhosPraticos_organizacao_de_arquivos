@@ -4,12 +4,15 @@
     - Felipe Ferreira Colona (15636525)
 */
 
-#include "../headers/dados/operacoes.h"
-#include "../headers/indice/btree_operacoes.h"
 #include "../headers/fornecidas.h"
 #include "../headers/dados/registro.h"
 #include "../headers/dados/cabecalho.h"
 #include "../headers/indice/btree_cabecalho.h"
+#include "../headers/operacoes/buscas.h"
+#include "../headers/operacoes/insercoes.h"
+#include "../headers/operacoes/criacoes.h"
+#include "../headers/operacoes/remocoes.h"
+#include "../headers/operacoes/atualizacoes.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
