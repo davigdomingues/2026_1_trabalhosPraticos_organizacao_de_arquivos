@@ -3,9 +3,77 @@
 #include "../../headers/dados/cabecalho.h"
 #include "../../headers/indice/btree_cabecalho.h"
 #include "../../headers/indice/btree_no.h"
+#include "../../headers/utils.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima){
+    ElementoIndice elems[4];
+
+    elems[0] = (ElementoIndice){no->C[0], no->Pr[0], no->P[1]};
+    elems[1] = (ElementoIndice){no->C[1], no->Pr[1], no->P[2]};
+    elems[2] = (ElementoIndice){no->C[2], no->Pr[2], no->P[3]};
+    elems[3] = overflowElem;
+
+    int ponteiroMaisEsquerda = no->P[0];
+
+    insertionSort(elems, 4);
+
+    no->C[0] = elems[0].chave;
+    no->Pr[0] = elems[0].ptrDados;
+    no->P[1] = elems[0].filhoDir;
+
+    no->C[1] = elems[1].chave;
+    no->Pr[1] = elems[1].ptrDados;
+    no->P[2] = elems[1].filhoDir;
+
+    no->C[2] = -1;
+    no->Pr[2] = -1;
+    no->P[3] = -1;
+    no->P[0] = ponteiroMaisEsquerda;
+    no->nroChaves = 2;
+
+    promoPraCima->chave = elems[2].chave;
+    promoPraCima->ptrDados = elems[2].ptrDados;
+    promoPraCima->filhoDir = rrnNovoNo;
+
+    novoNo->C[0] = elems[3].chave;
+    novoNo->Pr[0]= elems[3].ptrDados;
+    novoNo->P[0] = elems[2].filhoDir;
+    novoNo->P[1] = elems[3].filhoDir;
+
+    novoNo->C[1] = -1; novoNo->C[2]  = -1;
+    novoNo->Pr[1] = -1; novoNo->Pr[2] = -1;
+    novoNo->P[2] = -1; novoNo->P[3]  = -1;
+    
+    novoNo->nroChaves = 1;
+    novoNo->tipoNo = no->tipoNo;
+}
+
+
+bool insereOrdenado(No *no, ElementoIndice elem){
+    if(no->nroChaves >= NRO_MAX_CHAVES) return false;
+
+    int i = no->nroChaves - 1;
+    //shifta todos os elementos maiores do que a chave para a direita
+    while (i >= 0 && no->C[i] > elem.chave) {
+        no->C[i+1] = no->C[i];
+        no->Pr[i+1] = no->Pr[i];
+        no->P[i+2] = no->P[i+1]; //o filho a direita acompanha a chave
+        i--;
+    }
+
+    //insere na posição correta
+    int posicaoInsercao = i + 1;
+    no->C[posicaoInsercao] = elem.chave;
+    no->Pr[posicaoInsercao] = elem.ptrDados;
+    no->P[posicaoInsercao+1] = elem.filhoDir;
+
+    no->nroChaves++;
+    return true;
+}
+
 
 No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *promoPraCima){
     int rrnNovoNo;

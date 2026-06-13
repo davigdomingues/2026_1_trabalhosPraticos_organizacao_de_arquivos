@@ -30,11 +30,8 @@ typedef struct {
 
 No *inicializarNo();
 void lerNo(FILE *fileIndice, No *no);
-bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
-bool insereOrdenado(No *no, ElementoIndice elem);
 bool escreverNo(FILE *file, No *no);
 No *criarNo(FILE *fileIndice, int *novoRRN);
-void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima);
 void apagarNo(FILE *fileIndice, int rrnNoParaApagar, int *nroNos);
 
 #endif

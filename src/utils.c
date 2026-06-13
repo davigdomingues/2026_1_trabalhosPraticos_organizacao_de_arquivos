@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../headers/utils.h"
+#include "../headers/indice/btree_no.h"
 
 int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
     free((void*) key);
@@ -276,4 +277,16 @@ bool aplicarParesEmRegistro(Registro *reg, CampoValor *pares, int mPares) {
         if (!aplicarParEmRegistro(reg, &pares[i])) return false;
     }
     return true;
+}
+
+void insertionSort(ElementoIndice arr[], int tam) {
+    for (int i = 1; i < tam; i++) {
+        ElementoIndice chaveAtual = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j].chave > chaveAtual.chave) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = chaveAtual;
+    }
 }

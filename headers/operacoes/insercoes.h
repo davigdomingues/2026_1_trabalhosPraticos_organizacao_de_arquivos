@@ -13,6 +13,9 @@
 
 int insertIndice(FILE *fileIndice, int chave, int ponteiroDados, int *nroNovosNos);
 int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, ElementoIndice *elemASerPromovido, int *nroNos);
+void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima);
+bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
+bool insereOrdenado(No *no, ElementoIndice elem);
 No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *elemASerPromovido);
 /** @brief Dado um arquivo binário, insere um novo registro com os valores especificados.
  * 

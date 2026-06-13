@@ -3,6 +3,7 @@
 
 #include "../c-hashmap/map.h"
 #include "../headers/dados/registro.h"
+#include "../headers/indice/btree_no.h"
 
 typedef struct CampoValor {
     char *campo;
@@ -131,5 +132,7 @@ bool aplicarParEmRegistro(Registro *reg, CampoValor *par);
  * @return false falha de alocação em algum dos pares
  */
 bool aplicarParesEmRegistro(Registro *reg, CampoValor *pares, int mPares);
+
+void insertionSort(ElementoIndice arr[], int tam);
 
 #endif

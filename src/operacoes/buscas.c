@@ -1,14 +1,53 @@
 #include "../../headers/operacoes/buscas.h"
+#include "../../headers/operacoes/insercoes.h"
 #include "../../headers/dados/registro.h"
 #include "../../headers/dados/cabecalho.h"
 #include "../../headers/utils.h"
 #include "../../headers/indice/btree_cabecalho.h"
 #include "../../headers/indice/btree_no.h"
+#include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados){
+    int C1 = no->C[0] != -1 ? no->C[0] : INT_MAX;
+    int C2 = no->C[1] != -1 ? no->C[1] : INT_MAX;
+    int C3 = no->C[2] != -1 ? no->C[2] : INT_MAX;
+
+    if(chave == C2){
+        *ponteiroDados = no->Pr[1];
+        return true;
+    }
+    else if(chave < C2){
+        if(chave == C1){
+            *ponteiroDados = no->Pr[0];
+            return true;
+        } else if(chave < C1) {
+            *subArvore = no->P[0];
+        }
+        else {
+            *subArvore = no->P[1];
+        }
+    }
+    else {
+        if(chave == C3){
+            *ponteiroDados = no->Pr[2];
+        return true;
+    }
+        else if(chave < C3){
+            *subArvore = no->P[2];
+        }
+        else {
+            *subArvore = no->P[3];
+        }
+    }
+    return false;
+}
+
+
 
 void selectAll(FILE *file){
     fseek(file, TAM_CABECALHO, SEEK_SET); 

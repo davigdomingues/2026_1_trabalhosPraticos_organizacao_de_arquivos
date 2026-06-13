@@ -40,5 +40,6 @@ int selectAllWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPa
 
 int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print);
 bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados);
+bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
 
 #endif
