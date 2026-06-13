@@ -164,12 +164,17 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
     ElementoIndice promoDeBaixo;
     int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo, nroNovosNos);
 
-    if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) return res;
+    if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) {
+        free(no);
+        return res;
+    }
     else if (no->nroChaves < NRO_MAX_CHAVES){
         insereOrdenado(no, promoDeBaixo);
 
         fseek(fileIndice, inicioNo, SEEK_SET);
         escreverNo(fileIndice, no);
+        
+        free(no);
         return SEM_PROMOCAO;
     } else {
 
@@ -183,6 +188,10 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
         escreverNo(fileIndice, novoNo);
 
         (*nroNovosNos)++;
+        
+        free(no);
+        free(novoNo);
+        
         return PROMOCAO;
     }
 

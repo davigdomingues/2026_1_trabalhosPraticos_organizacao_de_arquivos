@@ -47,8 +47,6 @@ bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados){
     return false;
 }
 
-
-
 void selectAll(FILE *file){
     fseek(file, TAM_CABECALHO, SEEK_SET); 
 
@@ -229,6 +227,9 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
                 printf("Registro inexistente.\n");
                 printf("\n");
             }
+            if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+            if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
+            free(reg);
             return -1;
         }
 
@@ -236,6 +237,10 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
             printReg(reg);
             printf("\n");
         }
+        
+        if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+        if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
+        free(reg);
         return ponteiroRes;
     }
 }
@@ -258,5 +263,6 @@ bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, 
     }
 
     *rrnNoRes = rrnNoAtual;
+    free(no);
     return true;
 }

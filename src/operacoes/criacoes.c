@@ -93,6 +93,7 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
         }
 
         proxRRN++;
+        free(reg);
     }
 
     atualizarStatus(file, '1', true);
@@ -105,11 +106,12 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
     hashmap_iterate(mapParesEstacoes, freeMapKeys, NULL);
     hashmap_free(mapParesEstacoes);
 
+    free(linha);
+
     fclose(csv);
     fclose(file);
     return true;
 }
-
 
 bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
     char statusDados;
