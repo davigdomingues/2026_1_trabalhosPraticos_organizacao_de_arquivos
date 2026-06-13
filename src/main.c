@@ -49,7 +49,7 @@ bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEs
         reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
         reg->tamNomeLinha = 0; reg->nomeLinha   = "";
 
-        fseek(fileDados, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
+        fseek(fileDados, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
 
         //lê os campos do registro e armazena na struct
         fread(&reg->codEstacao, sizeof(int), 1, fileDados);
@@ -198,12 +198,12 @@ int main(){
     switch (op) {
         case 1: // CREATE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return 0;
+            if (!arquivoDados) break;
 
             arquivoSaida = lerNomeArquivo();
             if (!arquivoSaida) {
                 free(arquivoDados);
-                return 0;
+                break;
             }
 
             FILE *fileCsv = fopen(arquivoDados, "r");
@@ -234,13 +234,13 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             fileDados = fopen(arquivoDados, "rb");
             if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
             selectAll(fileDados);
             break;
@@ -248,13 +248,13 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             fileDados = fopen(arquivoDados, "rb");
             if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             int nBuscas = 0;
@@ -276,7 +276,7 @@ int main(){
             break;
         case 4: // DELETE WHERE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return 0;
+            if (!arquivoDados) break;
 
             fileDados = fopen(arquivoDados, "r+b");
             if (!fileDados) {
@@ -335,13 +335,13 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             fileDados = fopen(arquivoDados, "rb+");
             if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             char statusDadosInsert;
@@ -409,7 +409,7 @@ int main(){
             break;
         case 6: // UPDATE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return 0;
+            if (!arquivoDados) break;
 
             fileDados = fopen(arquivoDados, "r+b");
             if (!fileDados) {
@@ -480,10 +480,10 @@ int main(){
             break;
         case 7: // CREATE INDEX ÁRVORE-B
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados) return 0;
+            if (!arquivoDados) break;
 
             arquivoIndice = lerNomeArquivo();
-            if (!arquivoIndice) return 0;
+            if (!arquivoIndice) break;
 
             fileDados = fopen(arquivoDados, "rb");
             fileIndice = fopen(arquivoIndice, "wb+");
@@ -521,19 +521,19 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             arquivoIndice = lerNomeArquivo();
             if (!arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             fileDados = fopen(arquivoDados, "rb");
             if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             if(arquivoIndice != NULL){
@@ -563,14 +563,14 @@ int main(){
             arquivoIndice = lerNomeArquivo();
             if (!arquivoDados || !arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             fileDados = fopen(arquivoDados, "rb+");
             fileIndice = fopen(arquivoIndice, "rb+");
             if (!fileDados || !fileIndice) {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
             char statusDadosInsertIndexado;
@@ -666,14 +666,14 @@ int main(){
             arquivoDados = lerNomeArquivo();
             if (!arquivoDados){
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
             
             arquivoIndice = lerNomeArquivo();
             if (!arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
                 free(arquivoDados);
-                return 0;
+                break;
             }
 
             fileDados = fopen(arquivoDados, "r+b");
@@ -683,7 +683,7 @@ int main(){
                 if (fileDados) fclose(fileDados);
                 if (fileIndice) fclose(fileIndice);
                 free(arquivoDados); free(arquivoIndice);
-                return 0;
+                break;
             }
 
             // Processo padrão de leitura e de validação do status dos arquivos
