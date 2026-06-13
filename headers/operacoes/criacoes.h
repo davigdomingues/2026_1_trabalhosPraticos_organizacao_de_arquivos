@@ -9,12 +9,12 @@
 /**
  * @brief A partir de um arquivo CSV, cria um arquivo binário contendo registros de estações de metrô/trem.
  * 
- * @param arquivoEntrada caminho para o arquivo CSV de entrada
- * @param arquivoSaida caminho para o arquivo BIN a ser criado
+ * @param csv ponteiro para o arquivo CSV de entrada
+ * @param fileBin ponteiro para o arquivo BIN a ser criado
  * @return true arquivo BIN criado e populado com sucesso
  * @return false falha no processamento de algum dos arquivos
  */
-bool create(char *arquivoEntrada, char *arquivoSaida);
+bool create(FILE *csv, FILE *fileBin);
 
 /**
  * @brief cria a árvore-B de índice a partir do arquivo binário de dados

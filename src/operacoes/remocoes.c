@@ -11,69 +11,45 @@
 #include <string.h>
 
 
-bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares){
-    // para cada registro que deve ser removido, acessa-se o arquivo e se marca como removido, além de atualizar a lista de removidos e os contadores do cabeçalho
-    FILE *file = fopen(arquivoEntrada, "r+b");
-    if(!file){
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
+bool deleteWhere(FILE *fileDados, CampoValor *pares, int mPares) {
+    int topoDados;
 
-    char status;
-    int topo;
-
-    // lê o status e o topo da lista de removidos do cabeçalho
-    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
-        printf("Falha no processamento do arquivo.\n");
-        fclose(file);
-        return false;
-    }
-
-    atualizarStatus(file, '0', true); // atualiza o status para '0' para indicar que o arquivo está sendo modificado
+    // Recupera o topo atual da pilha de removidos
+    fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
+    if (fread(&topoDados, sizeof(int), 1, fileDados) != 1) return false;
 
     int rrn = -1;
     bool ok = true;
     // loop para marcar os registros como removidos e atualizar a lista de removidos no cabeçalho
     while(true){
         //busca o próximo registro que satisfaz os critérios de remoção
-        rrn = selectWhere(file, NULL, pares, mPares, rrn+1, true, true); //+1 para não ficar retornando sempre o mesmo rrn
+        rrn = selectWhere(fileDados, NULL, pares, mPares, rrn+1, true, true); //+1 para não ficar retornando sempre o mesmo rrn
         if(rrn < 0) break;
 
         long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG; // calcula o byte offset do registro a ser removido, usando o RRN para acessar diretamente
-        if (fseek(file, inicioRegistro, SEEK_SET) != 0) {  // posiciona o ponteiro no início do registro a ser removido
+        if (fseek(fileDados, inicioRegistro, SEEK_SET) != 0) {  // posiciona o ponteiro no início do registro a ser removido
             ok = false; break; 
         }
         char removidoFlag = '1';
 
-        if (fwrite(&removidoFlag, sizeof(char), 1, file) != 1) {  // marca o registro como removido escrevendo '1' no byte de removido
+        if (fwrite(&removidoFlag, sizeof(char), 1, fileDados) != 1) {  // marca o registro como removido escrevendo '1' no byte de removido
             ok = false; break; 
         }
         
-        if (fwrite(&topo, sizeof(int), 1, file) != 1) {  // escreve o antigo topo da lista de removidos no campo de proxRRN do registro removido, para manter a lista encadeada
+        if (fwrite(&topoDados, sizeof(int), 1, fileDados) != 1) {  // escreve o antigo topo da lista de removidos no campo de proxRRN do registro removido, para manter a lista encadeada
             ok = false; break; 
         }
-        topo = rrn; // atualiza o topo para o RRN do registro recém-removido, que agora é o primeiro da lista de removidos
-        fseek(file, inicioRegistro + TAM_REG, SEEK_SET);
+        topoDados = rrn; // atualiza o topo para o RRN do registro recém-removido, que agora é o primeiro da lista de removidos
+        // fseek(fileDados, inicioRegistro + TAM_REG, SEEK_SET);
     }
 
-    // se todas as marcações de removido foram feitas com sucesso, atualiza o topo da lista de removidos no cabeçalho para apontar para o primeiro registro removido
     if (ok) {
-        if (fseek(file, DADOS_OFF_TOPO, SEEK_SET) != 0 || fwrite(&topo, sizeof(int), 1, file) != 1) ok = false;
+        // Atualiza de forma consolidada o novo topo da lista encadeada de lixo
+        fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
+        fwrite(&topoDados, sizeof(int), 1, fileDados);
     }
 
-    // caso haja algum erro durante o processo de remoção
-    if (!ok) {
-        printf("Falha no processamento do arquivo.\n");
-        fclose(file);
-        return false;
-    }
-
-    recalcularContadores(file); // atualiza os contadores de estações e pares de estações no cabeçalho após as remoções
-
-    atualizarStatus(file, '1', true); // atualiza o status para '1' para indicar que o arquivo está consistente novamente
-    fclose(file);
-
-    return true;
+    return ok;
 }
 
 bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {

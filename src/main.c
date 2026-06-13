@@ -23,7 +23,6 @@
 #define TAM_ARQUIVO 100 // tamanho máximo para nome de arquivo
 #define MAX_PARES 8 // número máximo de pares
 
-
 bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEstacao){
     fseek(fileDados, TAM_CABECALHO, SEEK_SET);
 
@@ -199,14 +198,37 @@ int main(){
     switch (op) {
         case 1: // CREATE
             arquivoDados = lerNomeArquivo();
+            if (!arquivoDados) return 0;
+
             arquivoSaida = lerNomeArquivo();
-            if (!arquivoDados || !arquivoSaida){
-                printf("Falha no processamento do arquivo.\n");
+            if (!arquivoSaida) {
+                free(arquivoDados);
                 return 0;
             }
 
-            ok = create(arquivoDados, arquivoSaida);
-            if(ok) BinarioNaTela(arquivoSaida);
+            FILE *fileCsv = fopen(arquivoDados, "r");
+            FILE *fileBin = fopen(arquivoSaida, "wb+");
+            if (!fileCsv || !fileBin) {
+                printf("Falha no processamento do arquivo.\n");
+                if (fileCsv) fclose(fileCsv);
+                if (fileBin) fclose(fileBin);
+                break;
+            }
+
+            // Executa a carga útil de parseamento e gravação
+            ok = create(fileCsv, fileBin);
+
+            // Consolida a consistência do arquivo gerado
+            if (ok) {
+                char statusConsistente = '1';
+                fseek(fileBin, DADOS_OFF_STATUS, SEEK_SET);
+                fwrite(&statusConsistente, sizeof(char), 1, fileBin);
+            }
+
+            fclose(fileCsv);
+            fclose(fileBin);
+
+            if (ok) BinarioNaTela(arquivoSaida);
             break;
         case 2: // SELECT ALL
             arquivoDados = lerNomeArquivo();
@@ -254,12 +276,30 @@ int main(){
             break;
         case 4: // DELETE WHERE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados){
+            if (!arquivoDados) return 0;
+
+            fileDados = fopen(arquivoDados, "r+b");
+            if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
 
-            int nRemocoes = 0; // número de operações de remoção a serem realizadas
+            // Validação de consistência do cabeçalho
+            char statusDelSeq;
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fread(&statusDelSeq, sizeof(char), 1, fileDados);
+            if (statusDelSeq != '1') {
+                printf("Falha no processamento do arquivo.\n");
+                fclose(fileDados);
+                break;
+            }
+
+            // Trava o arquivo definindo status como inconsistente para o lote de operações
+            char statusInconsistenteDel = '0';
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fwrite(&statusInconsistenteDel, sizeof(char), 1, fileDados);
+
+            int nRemocoes = 0;
             scanf("%d", &nRemocoes);
 
             CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES); // pares da remoção atual
@@ -268,18 +308,27 @@ int main(){
             for (int i = 0; i < nRemocoes; i++) {
                 int mPares = 0;
                 scanf("%d", &mPares);
-
+                
                 lerPares(paresDelete, mPares); // leitura dos pares para a operação de remoção atual
 
-                if (ok && !deleteWhere(arquivoDados, paresDelete, mPares)) {
+                if (ok && !deleteWhere(fileDados, paresDelete, mPares)) {
                     ok = false; // como falhou, não tenta as próximas
                 }
 
                 liberarPares(paresDelete, mPares); // liberação dos pares da operação de remoção atual antes de ler os próximos, para evitar acúmulo de memória alocada
             }
-
             free(paresDelete);
 
+            // Recálculo e sincronização dos contadores uma única vez ao término de todas as remoções
+            if (ok) {
+                recalcularContadores(fileDados);
+                
+                char statusConsistente = '1';
+                fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+                fwrite(&statusConsistente, sizeof(char), 1, fileDados);
+            }
+
+            fclose(fileDados);
             if (ok) BinarioNaTela(arquivoDados);
             break;
         case 5: // INSERT
@@ -339,10 +388,28 @@ int main(){
             break;
         case 6: // UPDATE
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados){
+            if (!arquivoDados) return 0;
+
+            fileDados = fopen(arquivoDados, "r+b");
+            if (!fileDados) {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                break;
             }
+
+            // Validação de consistência do cabeçalho
+            char statusUpdSeq;
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fread(&statusUpdSeq, sizeof(char), 1, fileDados);
+            if (statusUpdSeq != '1') {
+                printf("Falha no processamento do arquivo.\n");
+                fclose(fileDados);
+                break;
+            }
+
+            // Modifica status para modulação inconsistente em lote
+            char statusInconsistenteUpd = '0';
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fwrite(&statusInconsistenteUpd, sizeof(char), 1, fileDados);
 
             int nAtualizacoes = 0; // número de operações de atualização a serem realizadas
             scanf("%d", &nAtualizacoes);
@@ -350,38 +417,45 @@ int main(){
             // busca e atualização (pares campo-valor)
             CampoValor *paresBusca = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             CampoValor *paresUpdate = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
-            
+
             // loop das operações de atualização
-            bool okUpdate = true;
+            ok = true;
 
             for (int i = 0; i < nAtualizacoes; i++) {
                 int mParesBusca = 0;
                 scanf("%d", &mParesBusca);
-
-                lerPares(paresBusca, mParesBusca); // leitura dos pares para a parte de busca da operação de atualização atual
+                lerPares(paresBusca, mParesBusca);
 
                 int mParesUpdate = 0; // número de pares para a parte de atualização da operação de atualização atual
                 scanf("%d", &mParesUpdate);
-
                 lerPares(paresUpdate, mParesUpdate);
 
-                // se houver falha em alguma das atualizações, okUpdate = false e as próximas atualizações não são tentadas
-                if (okUpdate && !update(arquivoDados, arquivoDados, paresBusca, mParesBusca, paresUpdate, mParesUpdate)) {
-                    okUpdate = false; // falha real
+                // se houver falha em alguma das atualizações, ok = false e as próximas atualizações não são tentadas
+                if (ok && !update(fileDados, paresBusca, mParesBusca, paresUpdate, mParesUpdate)) {
+                    ok = false;
                 }
 
                 // liberação dos pares da operação de atualização atual antes de ler os próximos
                 liberarPares(paresBusca, mParesBusca);
                 liberarPares(paresUpdate, mParesUpdate);
 
-                if (!okUpdate) break; // encerra antes de completar as N atualizações
+                if (!ok) break; // encerra antes de completar as N atualizações
             }
 
             free(paresBusca);
             free(paresUpdate);
 
-            if (okUpdate) BinarioNaTela(arquivoDados);
+            // Atualiza contadores uma única vez ao término e redefine a consistência do cabeçalho
+            if (ok) {
+                recalcularContadores(fileDados);
+                
+                char statusConsistente = '1';
+                fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+                fwrite(&statusConsistente, sizeof(char), 1, fileDados);
+            }
 
+            fclose(fileDados);
+            if (ok) BinarioNaTela(arquivoDados);
             break;
         case 7: // CREATE INDEX ÁRVORE-B
             arquivoDados = lerNomeArquivo();

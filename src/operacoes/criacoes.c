@@ -11,25 +11,24 @@
 #include <stdlib.h>
 #include <string.h>
 
-bool create(char *arquivoEntrada, char *arquivoSaida){
-    FILE *file = fopen(arquivoSaida, "wb");
-
+bool create(FILE *csv, FILE *fileBin) {
     int proxRRN = 0;
     //cria um hashmap para depois obter, eficientemente, o nroEstacoes únicas
     hashmap *mapEstacoes = hashmap_create();
     //cria um hashmap para depois obter, eficientemente, o nroParesEstacoes únicas
     hashmap *mapParesEstacoes = hashmap_create();
 
-    FILE *csv = fopen(arquivoEntrada, "r");
-    if(!csv){
-        printf("Falha no processamento do arquivo.\n");
-        fclose(file);
+    // Inicializa as estruturas básicas de metadados no início do arquivo de dados
+    inicializarCabecalho(fileBin);
+
+    // Aloca uma string para ler as linhas do CSV
+    char *linha = (char*) malloc(105 * sizeof(char));
+    if (!linha) {
+        hashmap_free(mapEstacoes);
+        hashmap_free(mapParesEstacoes);
         return false;
     }
 
-    inicializarCabecalho(file);
-
-    char *linha = (char*) malloc(105 * sizeof(char));
     fgets(linha, 105, csv); //ignora linha de nomes das colunas
     while(fgets(linha, 105, csv) != NULL){
         char *linhaPtr = linha;
@@ -42,7 +41,7 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
         if(!reg){
             free(linha);
             fclose(csv);
-            fclose(file);
+            fclose(fileBin);
             printf("Falha no processamento do arquivo.\n");
             return false;
         }
@@ -73,7 +72,7 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
             reg->nomeLinha = NULL;
             reg->tamNomeLinha = 0; 
         }
-        escreverReg(file, reg);
+        escreverReg(fileBin, reg);
 
         //salva no hashmap com o nome da estação sendo a chave, para garantir unicidade
         //o valor salvo não importa
@@ -96,20 +95,22 @@ bool create(char *arquivoEntrada, char *arquivoSaida){
         free(reg);
     }
 
-    atualizarStatus(file, '1', true);
-    atualizarProxRRN(file, proxRRN, true);
-    atualizarNroEstacoes(file, hashmap_size(mapEstacoes), false); //false porque nroEstacoes é o campo seguinte de proxRRN
-    atualizarNroParesEstacoes(file, hashmap_size(mapParesEstacoes), false); //false porque nroParesEstacoes é o campo seguinte de nroEstacoes
+    // Atualização dos contadores estruturais no cabeçalho do arquivo de dados
+    fseek(fileBin, DADOS_OFF_PROXRRN, SEEK_SET);
+    fwrite(&proxRRN, sizeof(int), 1, fileBin);
 
-    hashmap_iterate(mapEstacoes, freeMapKeys, NULL);
+    int nroEstacoes = hashmap_size(mapEstacoes);
+    int nroPares = hashmap_size(mapParesEstacoes);
+    fseek(fileBin, DADOS_OFF_NROESTACOES, SEEK_SET);
+    fwrite(&nroEstacoes, sizeof(int), 1, fileBin);
+    fwrite(&nroPares, sizeof(int), 1, fileBin);
+
+    // Liberações de memória locais
     hashmap_free(mapEstacoes);
-    hashmap_iterate(mapParesEstacoes, freeMapKeys, NULL);
+    hashmap_clear(mapParesEstacoes);
     hashmap_free(mapParesEstacoes);
-
     free(linha);
 
-    fclose(csv);
-    fclose(file);
     return true;
 }
 

@@ -12,17 +12,15 @@
 #define CHAVE_NAO_ENCONTRADA 0
 #define UNDERFLOW_PENDENTE 2
 
-
 /** @brief Dado um arquivo binário, remove logicamente os registros que correspondem aos critérios de busca especificados.
  * 
- * @param arquivoEntrada caminho para o arquivo binário de entrada
+ * @param fileDados ponteiro para o arquivo binário de entrada
  * @param pares array de campos e valores que especificam os critérios de busca
  * @param mPares tamanho do array de pares
  * @return true registros removidos com sucesso
  * @return false falha no processamento
  */
-
-bool deleteWhere(char *arquivoEntrada, CampoValor *pares, int mPares);
+bool deleteWhere(FILE *fileDados, CampoValor *pares, int mPares);
 
 /**
  * @brief Insere uma chave e seu ponteiro de dados correspondente na Árvore-B, promovendo chaves e dividindo nós conforme necessário para manter as propriedades da árvore

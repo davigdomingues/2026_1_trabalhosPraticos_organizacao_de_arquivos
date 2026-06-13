@@ -10,50 +10,28 @@
 #include <string.h>
 
 
-bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate) {
-    // processo de escrita, abre em r+b
-    FILE *file = fopen(arquivoEntrada, "r+b");
-    if (!file) {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
-
-    char status;
-    int topo;
-    // lê o status e o topo da lista de removidos do cabeçalho
-    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1' || fread(&topo, sizeof(int), 1, file) != 1) {
-        printf("Falha no processamento do arquivo.\n");
-
-        // evita abrir o mesmo arquivo de novo ao usar o FILE* já aberto
-        atualizarStatus(file, '0', true);
-
-        fclose(file);
-        return false;
-    }
-
-    // altera o status para inconsistente durante as modificações
-    atualizarStatus(file, '0', true);
+bool update(FILE *fileDados, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate) {
+    int rrn = -1;
     bool ok = true;
 
-    int rrn = -1;
     while(true){
         // busca o próximo registro que satisfaz os critérios para atualização
         // +1 para não ficar retornando sempre o mesmo rrn
         // seek = false, porque o ponteiro já estará no início do próximo rrn ao final do loop
-        rrn = selectWhere(file, NULL, paresBusca, mParesBusca, rrn+1, true, false);
+        rrn = selectWhere(fileDados, NULL, paresBusca, mParesBusca, rrn+1, true, false);
         if (rrn < 0) break;
 
         // cálculo do byte offset exato do registro
         long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG;
         
-        if (fseek(file, inicioRegistro, SEEK_SET) != 0) { 
+        if (fseek(fileDados, inicioRegistro, SEEK_SET) != 0) { 
             ok = false; 
             break; 
         }
 
         // lê a flag de removido para garantir que o registro não foi marcado como removido entre a busca e a atualização
         char removido;
-        if (fread(&removido, sizeof(char), 1, file) != 1) { 
+        if (fread(&removido, sizeof(char), 1, fileDados) != 1) { 
             ok = false; 
             break; 
         }
@@ -62,22 +40,22 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         reg.removido = '0';
 
         // leitura dos campos do registro original
-        if (fread(&reg.proximo, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codLinha, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codProxEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.distProxEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codLinhaIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
-        if (fread(&reg.codEstIntegra, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (fread(&reg.proximo, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
+        if (fread(&reg.codEstacao, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
+        if (fread(&reg.codLinha, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
+        if (fread(&reg.codProxEstacao, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
+        if (fread(&reg.distProxEstacao, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
+        if (fread(&reg.codLinhaIntegra, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
+        if (fread(&reg.codEstIntegra, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
 
         // leitura dos campos de string, alocando dinamicamente e tratando os casos de campos nulos
         char *nomeEstacao = "";
-        if (fread(&reg.tamNomeEstacao, sizeof(int), 1, file) != 1) { ok = false; break; }
+        if (fread(&reg.tamNomeEstacao, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
         // se o campo não for nulo, aloca memória para a string, lê do arquivo e garante a terminação nula
         if (reg.tamNomeEstacao > 0) {
             nomeEstacao = (char*) malloc((size_t)reg.tamNomeEstacao + 1);
             if (!nomeEstacao) { ok = false; break; }
-            if (fread(nomeEstacao, sizeof(char), reg.tamNomeEstacao, file) != (size_t)reg.tamNomeEstacao) {
+            if (fread(nomeEstacao, sizeof(char), reg.tamNomeEstacao, fileDados) != (size_t)reg.tamNomeEstacao) {
                 free(nomeEstacao); ok = false; break;
             }
             nomeEstacao[reg.tamNomeEstacao] = '\0'; // garante terminação nula
@@ -85,7 +63,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
 
         // mesmo processo para o nome da linha
         char *nomeLinha = "";
-        if (fread(&reg.tamNomeLinha, sizeof(int), 1, file) != 1) {
+        if (fread(&reg.tamNomeLinha, sizeof(int), 1, fileDados) != 1) {
             if (reg.tamNomeEstacao > 0) free(nomeEstacao);
             ok = false; break;
         }
@@ -96,7 +74,7 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
                 if (reg.tamNomeEstacao > 0) free(nomeEstacao);
                 ok = false; break;
             }
-            if (fread(nomeLinha, sizeof(char), reg.tamNomeLinha, file) != (size_t)reg.tamNomeLinha) { // se falhou a leitura, libera o que já alocou e marca como erro
+            if (fread(nomeLinha, sizeof(char), reg.tamNomeLinha, fileDados) != (size_t)reg.tamNomeLinha) { // se falhou a leitura, libera o que já alocou e marca como erro
                 if (reg.tamNomeEstacao > 0) free(nomeEstacao);
                 free(nomeLinha); ok = false; break;
             }
@@ -119,10 +97,10 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
             if (TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha) < 0) ok = false;
 
             // volta-se o ponteiro para o início do RRN exato e realiza a sobrescrição chamando a função escreverReg
-            if (fseek(file, inicioRegistro, SEEK_SET) != 0) {
+            if (fseek(fileDados, inicioRegistro, SEEK_SET) != 0) {
                 ok = false;
             } else {
-                escreverReg(file, &reg);
+                escreverReg(fileDados, &reg);
             }
         }
 
@@ -133,20 +111,5 @@ bool update(char *arquivoEntrada, char *arquivoSaida, CampoValor *paresBusca, in
         if (!ok) break;
     }
 
-    // se falhou no meio, trata o fechamento
-    if (!ok) {
-        printf("Falha no processamento do arquivo.\n");
-
-        // o status já está '0' desde o começo, mas mantém explícito sem reabrir
-        atualizarStatus(file, '0', true);
-
-        fclose(file);
-        return false;
-    }
-
-    // fim do processo de UPDATE
-    atualizarStatus(file, '1', true);
-    fclose(file);
-
-    return true;
+    return ok;
 }
