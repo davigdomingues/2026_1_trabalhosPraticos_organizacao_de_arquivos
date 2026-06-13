@@ -70,7 +70,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {
     fseek(fileIndice, BTREE_NO_INICIO(rrnRaiz), SEEK_SET);
     lerNo(fileIndice, raiz);
 
-    if (raiz->nroChaves == 0) {
+    if (raiz->nroChaves == 0) { // Raiz ficou vazia, precisa ser esvaziada ou substituída pela sua única subárvore (se existir)
         // Usa a verificação de ponteiros para saber se é folha
         if (raiz->P[0] != -1) {
             int novaRaiz = raiz->P[0]; 
@@ -91,8 +91,10 @@ bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {
             escreverNo(fileIndice, nRaiz);
             free(nRaiz);
 
-        } else {
+        } else { // Raiz é folha e ficou vazia, pode ser esvaziada normalmente
             int vazio = -1;
+
+            // Atualiza o RRN da raiz para -1, indicando que a árvore agora está vazia
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
             fwrite(&vazio, sizeof(int), 1, fileIndice);
             apagarNo(fileIndice, rrnRaiz, nroNos);
@@ -110,37 +112,44 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
     lerNo(fileIndice, noAtual);
 
     int pos = 0;
+    // Encontra a posição onde a chave deveria estar, ou o ponteiro para a subárvore onde ela deveria estar se não for encontrada no nó atual
     while (pos < noAtual->nroChaves && noAtual->C[pos] < chave) pos++;
 
+    // Verifica se a chave foi encontrada na posição identificada
     bool encontrada = (pos < noAtual->nroChaves && noAtual->C[pos] == chave);
 
     if (encontrada) {
-        if (noAtual->P[0] == -1) {
-            // Remoção física do registro na folha via shift
+        if (noAtual->P[0] == -1) { // A chave a ser removida está em uma folha, pode ser removida diretamente sem necessidade de promoção
+            // Remoção física do registro na folha via shift (contiguidade mantida)
             for (int i = pos; i < noAtual->nroChaves - 1; i++) {
                 noAtual->C[i] = noAtual->C[i+1];
                 noAtual->Pr[i] = noAtual->Pr[i+1];
             }
+
+            // Decrementa o número de chaves do nó e limpa os campos restantes para manter a consistência dos dados
             noAtual->nroChaves--;
             noAtual->C[noAtual->nroChaves] = -1;
             noAtual->Pr[noAtual->nroChaves] = -1;            
-        } else {
+        } else { // A chave a ser removida está em um nó interno, precisa ser promovida para manter as propriedades da Árvore-B
             // Substituição pela chave sucessora em nós internos
             int rrnSucessor = noAtual->P[pos+1];
             No *sucessor = inicializarNo();
             fseek(fileIndice, BTREE_NO_INICIO(rrnSucessor), SEEK_SET);
             lerNo(fileIndice, sucessor);
             
+            // Desce pela subárvore da direita para encontrar o sucessor in-order, que é o menor elemento dessa subárvore
             while (sucessor->P[0] != -1) {
                 rrnSucessor = sucessor->P[0];
                 fseek(fileIndice, BTREE_NO_INICIO(rrnSucessor), SEEK_SET);
                 lerNo(fileIndice, sucessor);
             }
             
+            // O sucessor encontrado é o menor elemento da subárvore direita, que pode ser promovido para substituir a chave a ser removida no nó atual
             int chaveSucessora = sucessor->C[0];
             int ponteiroDadosSucessor = sucessor->Pr[0];
             free(sucessor);
 
+            // Promove o sucessor para a posição da chave a ser removida no nó atual
             noAtual->C[pos] = chaveSucessora;
             noAtual->Pr[pos] = ponteiroDadosSucessor;
             fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET);
@@ -152,7 +161,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
                 tratarUnderflow(fileIndice, noAtual, rrnAtual, pos + 1, nroNos);
             }
         }
-    } else {
+    } else { // A chave não foi encontrada no nó atual, continua a busca na subárvore adequada
         if (noAtual->P[0] == -1) {
             free(noAtual);
             return CHAVE_NAO_ENCONTRADA; 
@@ -165,17 +174,20 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
             return CHAVE_NAO_ENCONTRADA;
         }
 
+        // Após a chamada recursiva, verifica se houve underflow pendente na subárvore e trata adequadamente para garantir as propriedades da Árvore-B
         if (statusSub == UNDERFLOW_PENDENTE) {
             tratarUnderflow(fileIndice, noAtual, rrnAtual, pos, nroNos);
         }
     }
 
+    // Escreve as alterações de volta no arquivo para o nó atual após a remoção ou promoção
     fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET);
     escreverNo(fileIndice, noAtual);
 
     int chavesAtuais = noAtual->nroChaves;
     free(noAtual);
 
+    // Verificação de underflow, em que caso o número de chaves do nó atual ficou abaixo do mínimo permitido, deve ser resolvido pela recursão de tratamento de underflow
     if (chavesAtuais < MIN_CHAVES) {
         return UNDERFLOW_PENDENTE;
     }
@@ -312,6 +324,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         }
         atual->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
 
+        // O ponteiro mais à direita do nó em underflow é atualizado para o que estava originalmente no irmão esquerdo, deslocado para a direita
         fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
         fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET); escreverNo(fileIndice, atual);
         fseek(fileIndice, BTREE_NO_INICIO(rrnIrmEsq), SEEK_SET); escreverNo(fileIndice, irmEsq);
@@ -364,10 +377,10 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     pai->Pr[pai->nroChaves] = -1;
     pai->P[pai->nroChaves + 1] = -1;
 
-    fseek(fileIndice, BTREE_NO_INICIO(rrnEsq), SEEK_SET); escreverNo(fileIndice, esq);
+    // Escreve as alterações de volta no arquivo para o pai e o nó resultante do merge (nó da esquerda)
     fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
     
-    apagarNo(fileIndice, rrnDir, nroNos); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
+    apagarNo(fileIndice, rrnDir, nroNos); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto
 }
 
 bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares, int *nroNos) {
@@ -384,12 +397,13 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
     int idxCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
 
     if (idxCodEstacao != -1 && !valorEhNulo(pares[idxCodEstacao].valor)) {
-        // Cenário 1: Busca O(log n) utilizando o índice da Árvore-B, seguida de validação completa dos filtros no registro encontrado antes de marcar como removido
+        // Busca O(log n) por índices da Árvore-B, seguida de validação completa dos filtros no registro encontrado
         int chaveBuscada = atoi(pares[idxCodEstacao].valor);
         int rrnRaiz; fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
         int rrnResIndice, ponteiroResDados;
-        if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) { // Encontrou a chave no índice, agora valida os outros filtros no registro correspondente antes de marcar como removido
+        // Encontrou a chave no índice, agora valida os outros filtros no registro correspondente antes de marcar como removido
+        if (buscaRecursiva(fileIndice, chaveBuscada, rrnRaiz, &rrnResIndice, &ponteiroResDados)) {
             fseek(fileDados, ponteiroResDados, SEEK_SET);
             char removido; fread(&removido, sizeof(char), 1, fileDados);
                 
@@ -404,7 +418,8 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
                     char flag = '1'; // Marca como removido
                     fwrite(&flag, sizeof(char), 1, fileDados); 
                     fwrite(&topoDados, sizeof(int), 1, fileDados);
-                        
+                    
+                    // Atualiza o topo da lista de removidos no arquivo de dados para apontar para o registro recém-removido, que agora é o primeiro da lista
                     topoDados = rrnAlvo;
                     fseek(fileDados, 1, SEEK_SET); 
                     fwrite(&topoDados, sizeof(int), 1, fileDados);
@@ -414,7 +429,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
             }
         }
     } else {
-        // Cenário 2: Busca sequencial O(n) lendo diretamente no disco
+        // Busca sequencial O(n), lendo diretamente no disco
         int rrn = -1;
         while (true) {
             // Passamos NULL para o índice, forçando o "full-scan" no selectWhere
@@ -436,6 +451,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
                 break; 
             }
 
+            // Escreve o antigo topo da lista de removidos no campo de proxRRN do registro removido, para manter a lista encadeada
             if (fwrite(&topoDados, sizeof(int), 1, fileDados) != 1) { 
                 ok = false; 
                 break; 

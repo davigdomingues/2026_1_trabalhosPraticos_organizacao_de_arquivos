@@ -79,15 +79,16 @@ No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice 
     int rrnNovoNo;
     No *novoNo = criarNo(fileIndice, &rrnNovoNo);
 
-    // Se a página que estourou era a RAIZ (0), ela perde a "coroa".
+    // Se a página que estourou era a RAIZ (0), ela perde a "coroa" e vira um nó intermediário, e o novo nó criado também é intermediário
     if (no->tipoNo == NO_RAIZ) {
         no->tipoNo = NO_INTERMEDIARIO;
         novoNo->tipoNo = NO_INTERMEDIARIO;
     } else {
-        // Se era Folha (-1) ou já era Intermediário (1), apenas copia
+        // Se era Folha (-1) ou já era intermediário (1), apenas copia
         novoNo->tipoNo = no->tipoNo; 
     }
 
+    // distribui os elementos de forma uniforme entre o nó que estourou e o novo nó criado, e define o elemento a ser promovido para o pai
     distribuirUniforme(fileIndice, no, novoNo, rrnNovoNo, overflowElem, promoPraCima);
     return novoNo;
 }
@@ -199,6 +200,7 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
 }
 
 bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores, int *nroNos) {
+    // Se o campo de código da estação estiver presente nos valores a serem inseridos e o arquivo de índice existir, verifica se já existe um registro com o mesmo código de estação usando o índice
     if(*valores[CAMPO_COD_ESTACAO].valor && fileIndice != NULL){
         CampoValor *pares[8] = {NULL};
         CampoValor *apenasCodEstacao = (CampoValor*) malloc(sizeof(CampoValor));
@@ -206,6 +208,7 @@ bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores
         apenasCodEstacao->valor = valores[CAMPO_COD_ESTACAO].valor;
         pares[0] = apenasCodEstacao;
 
+        // Se a busca retornar um resultado, significa que já existe um registro com o mesmo código de estação, e a inserção deve ser abortada para evitar duplicidade
         int res = selectWhereIndexado(fileDados, fileIndice, pares, 1, false);
         if(res > 0){
             free(apenasCodEstacao);

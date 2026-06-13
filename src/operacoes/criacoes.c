@@ -119,16 +119,19 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
     bool ok = true;
     long offsetRegistro;
 
+    // Verifica se os arquivos foram abertos corretamente
     if(!fileDados || !fileIndice) {
         printf("Falha no processamento do arquivo.\n");
         return false;
     }
 
+    // Inicializa o arquivo de índice com um cabeçalho válido, mas com status '0' (inconsistente)
     if(!escreverCabecalhoIndice(fileIndice, '0', -1, -1, 0, 0)) {
         printf("Falha no processamento do arquivo.\n");
         return false;
     }
 
+    // Move o ponteiro do arquivo de dados para o início dos registros, ignorando o cabeçalho
     if(fseek(fileDados, TAM_CABECALHO, SEEK_SET) != 0) {
         printf("Falha no processamento do arquivo.\n");
         return false;
@@ -136,18 +139,17 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
 
     offsetRegistro = TAM_CABECALHO;
 
-    offsetRegistro = TAM_CABECALHO;
-
     int nroNos = 0;
-    while (1) {
+    while (1) { // Lê cada registro do arquivo de dados e insere a chave e o ponteiro no arquivo de índice
         char removido;
         int lixo, chave, tamNomeEstacao, tamNomeLinha;
         int i;
 
+        // Lê o campo de remoção para verificar se o registro está marcado como removido
         if (fread(&removido, sizeof(char), 1, fileDados) != 1) break;
 
-        if (removido == '1') {
-            if (fseek(fileDados, TAM_REG - 1, SEEK_CUR) != 0) {
+        if (removido == '1') { // Se o registro estiver marcado como removido, pula para o próximo registro
+            if (fseek(fileDados, TAM_REG - 1, SEEK_CUR) != 0) { // Já leu o campo de remoção, então subtrai 1 do tamanho total do registro
                 ok = false;
                 break;
             }
@@ -155,11 +157,13 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
             continue;
         }
 
+        // Lê o campo de chave (codEstacao) para inserção no índice
         if (fread(&lixo, sizeof(int), 1, fileDados) != 1 || fread(&chave, sizeof(int), 1, fileDados) != 1) {
             ok = false;
             break;
         }
 
+        // Pula os campos que não são necessários para a construção do índice
         for (i = 0; i < 5; i++) {
             if (fread(&lixo, sizeof(int), 1, fileDados) != 1) {
                 ok = false;
@@ -168,30 +172,38 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
         }
         if (!ok) break;
 
+        // Lê os tamanhos dos campos de nome para pular os dados variáveis
         if (fread(&tamNomeEstacao, sizeof(int), 1, fileDados) != 1) {
             ok = false;
             break;
         }
+
+        // Pula o campo de nome da estação
         if (tamNomeEstacao > 0 && fseek(fileDados, tamNomeEstacao, SEEK_CUR) != 0) {
             ok = false;
             break;
         }
 
+        // Lê o tamanho do campo de nome da linha para pular o dado variável
         if (fread(&tamNomeLinha, sizeof(int), 1, fileDados) != 1) {
             ok = false;
             break;
         }
+
+        // Pula o campo de nome da linha
         if (tamNomeLinha > 0 && fseek(fileDados, tamNomeLinha, SEEK_CUR) != 0) {
             ok = false;
             break;
         }
 
+        // Calcula o deslocamento para o próximo registro, considerando os campos de tamanho variável e posiciona o ponteiro do arquivo de dados para o início do próximo registro
         i = TAM_LIVRE_REG(tamNomeEstacao, tamNomeLinha);
         if (i > 0 && fseek(fileDados, i, SEEK_CUR) != 0) {
             ok = false;
             break;
         }
 
+        // Insere a chave e o ponteiro para o registro no arquivo de índice usando a função insertIndice e incrementa o contador de nós do índice
         if (insertIndice(fileIndice, chave, (int)offsetRegistro, &nroNos) == ERRO_DE_INSERCAO) {
             ok = false;
             break;
@@ -200,7 +212,7 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
         offsetRegistro += TAM_REG;
     }
 
-    if (ok) {
+    if (ok) { // Se a construção do índice foi bem-sucedida, atualiza o status do arquivo de índice para '1' (consistente) e o número de nós no cabeçalho do índice
         fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
         fwrite(&nroNos, sizeof(int), 1, fileIndice);
     }
