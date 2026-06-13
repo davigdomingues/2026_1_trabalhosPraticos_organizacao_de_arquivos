@@ -11,9 +11,7 @@
     topo: 4 bytes
     proxRRN: 4 bytes
     nroNos: 4 bytes 
-*/
 
-/* 
     justificativa: a ordem dos campos no cabeçalho da árvore-B é diferente do arquivo de dados
     para facilitar a leitura e escrita dos campos específicos da árvore-B, como o RRN da raiz
     e o número de nós, sem precisar ler ou escrever os campos do arquivo de dados que não são

@@ -214,6 +214,8 @@ bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores
             free(apenasCodEstacao);
             return true;
         }
+
+        free(apenasCodEstacao);
     }
 
     char status;

@@ -378,6 +378,7 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     pai->P[pai->nroChaves + 1] = -1;
 
     // Escreve as alterações de volta no arquivo para o pai e o nó resultante do merge (nó da esquerda)
+    fseek(fileIndice, BTREE_NO_INICIO(rrnEsq), SEEK_SET); escreverNo(fileIndice, esq);
     fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
     
     apagarNo(fileIndice, rrnDir, nroNos); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto
