@@ -123,13 +123,6 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
         return false;
     }
 
-    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET); // Reposiciona para ler o status do arquivo de dados
-
-    if(fread(&statusDados, sizeof(char), 1, fileDados) != 1 || statusDados != '1') {
-        printf("Falha no processamento do arquivo.\n");
-        return false;
-    }
-
     if(!escreverCabecalhoIndice(fileIndice, '0', -1, -1, 0, 0)) {
         printf("Falha no processamento do arquivo.\n");
         return false;
@@ -207,7 +200,6 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
     }
 
     if (ok) {
-        ok = atualizarStatusIndice(fileIndice, '1');
         fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
         fwrite(&nroNos, sizeof(int), 1, fileIndice);
     }

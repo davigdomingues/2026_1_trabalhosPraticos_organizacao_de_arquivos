@@ -400,18 +400,9 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
     char statusDados, statusIndice;
     int topoDados;
 
-    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET); // Reposiciona para ler o status do arquivo de dados de forma segura (dados)
-    if (fread(&statusDados, sizeof(char), 1, fileDados) != 1 || statusDados != '1' || fread(&topoDados, sizeof(int), 1, fileDados) != 1) {
-        return false;
-    }
-
-    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET); // Reposiciona para ler o status do arquivo de índice de forma segura (índice)
-    if (fread(&statusIndice, sizeof(char), 1, fileIndice) != 1 || statusIndice != '1') {
-        return false;
-    }
-
-    atualizarStatus(fileDados, '0', true);
-    atualizarStatusIndice(fileIndice, '0');
+    // Dado o status na main, apenas realiza a leitura do topo o qual será usado para a lógica de remoção
+    fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
+    if (fread(&topoDados, sizeof(int), 1, fileDados) != 1) return false;
 
     bool ok = true;
     int idxCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
@@ -490,9 +481,6 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
 
     // Atualização dos dados persistentes
     recalcularContadores(fileDados);
-
-    atualizarStatus(fileDados, '1', true);
-    atualizarStatusIndice(fileIndice, '1');
 
     return ok;
 }

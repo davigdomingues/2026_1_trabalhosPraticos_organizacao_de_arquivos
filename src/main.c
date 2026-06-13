@@ -400,8 +400,23 @@ int main(){
                 break;
             }
 
+            // Leitura padrão do status do arquivo de dados
+            char statusDadosCreate;
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            if (fread(&statusDadosCreate, sizeof(char), 1, fileDados) != 1 || statusDadosCreate != '1') {
+                printf("Falha no processamento do arquivo.\n");
+                fclose(fileDados); fclose(fileIndice);
+                break;
+            }
+
             ok = criarIndiceArvoreB(fileDados, fileIndice);
             
+            // Escrita padrão do status do arquivo de índice
+            if (ok) {
+                char statusConsistente = '1';
+                fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+                fwrite(&statusConsistente, sizeof(char), 1, fileIndice);
+            }
             fclose(fileDados);
             fclose(fileIndice);
 
@@ -544,7 +559,6 @@ int main(){
 
             fileDados = fopen(arquivoDados, "r+b");
             fileIndice = fopen(arquivoIndice, "r+b");
-
             if (!fileDados || !fileIndice) {
                 printf("Falha no processamento do arquivo.\n");
                 if (fileDados) fclose(fileDados);
@@ -553,7 +567,32 @@ int main(){
                 return 0;
             }
 
-            // Recuperaão do nroNos inicial do cabeçalho do índice
+            // Processo padrão de leitura e de validação do status dos arquivos
+            char statusDadosDel, statusIndiceDel;
+            
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fread(&statusDadosDel, sizeof(char), 1, fileDados);
+            
+            fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+            fread(&statusIndiceDel, sizeof(char), 1, fileIndice);
+            
+            if (statusDadosDel != '1' || statusIndiceDel != '1') {
+                printf("Falha no processamento do arquivo.\n");
+                fclose(fileDados); fclose(fileIndice);
+                free(arquivoDados); free(arquivoIndice);
+                break;
+            }
+            
+            // Processo de marcação dos arquivos como inconsistentes durante as operações de remoção indexada, para garantir que, em caso de falha, os arquivos não sejam considerados consistentes
+            char statusInconsistente = '0';
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fwrite(&statusInconsistente, sizeof(char), 1, fileDados);
+            
+            fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+            fwrite(&statusInconsistente, sizeof(char), 1, fileIndice);
+
+
+            // Recuperação do número de nós do arquivo de índice para controle durante as remoções indexadas
             int nroNosRemocao;
             fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
             fread(&nroNosRemocao, sizeof(int), 1, fileIndice);
@@ -570,7 +609,6 @@ int main(){
                 
                 lerPares(paresDeleteIdx, mPares);
 
-                // Passa nroNosRemocao por referência, a fim de realizar o rastreamento em memória
                 if (ok && !deleteWhereIndexado(fileDados, fileIndice, paresDeleteIdx, mPares, &nroNosRemocao)) {
                     ok = false;
                 }
@@ -579,9 +617,19 @@ int main(){
             }
             free(paresDeleteIdx);
 
-            // Atualização o cabeçalho físico com o total de nós resultante (processo de escrita única para evitar overhead de múltiplas escritas no cabeçalho)
+            // Atualização da contagem de nós no arquivo de índice
             fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
             fwrite(&nroNosRemocao, sizeof(int), 1, fileIndice);
+
+            // Processo de "limpeza" dos arquivos (marcação de consistência)
+            if (ok) {
+                char statusConsistente = '1';
+                fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+                fwrite(&statusConsistente, sizeof(char), 1, fileDados);
+                
+                fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+                fwrite(&statusConsistente, sizeof(char), 1, fileIndice);
+            }
 
             fclose(fileDados);
             fclose(fileIndice);
