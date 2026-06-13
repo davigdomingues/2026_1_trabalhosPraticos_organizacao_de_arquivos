@@ -123,21 +123,14 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
 }
 
 int insertIndice(FILE *fileIndice, int chave, int ptrDados, int *nroNos){
-    char inconsistente = '0';
-    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
-    fwrite(&inconsistente, sizeof(char), 1, fileIndice);
-
     int rrnRaiz;
+    fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
     fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
     ElementoIndice promoDeBaixo;
     int res = insertIndiceRec(fileIndice, chave, ptrDados, rrnRaiz, &promoDeBaixo, nroNos);
     if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, promoDeBaixo, nroNos);
 
-    //atualiza o status de consistência
-    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
-    char consistente = '1';
-    fwrite(&consistente, sizeof(char), 1, fileIndice);
     return 1;
 }
 
@@ -218,24 +211,20 @@ bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores
         free(apenasCodEstacao);
     }
 
-    char status;
     int topo;
     int proxRRN;
     int nroEstacoes;
     int nroPares;
 
-    // lê o status, o topo da lista de removidos e os contadores do cabeçalho
-    if (fread(&status, sizeof(char), 1, fileDados) != 1 || status != '1' ||
-        fread(&topo, sizeof(int), 1, fileDados) != 1 ||
+    // o topo da lista de removidos e os contadores do cabeçalho
+    //não lê o status, porque ele já foi lido na main
+    if (fread(&topo, sizeof(int), 1, fileDados) != 1 ||
         fread(&proxRRN, sizeof(int), 1, fileDados) != 1 ||
         fread(&nroEstacoes, sizeof(int), 1, fileDados) != 1 ||
         fread(&nroPares, sizeof(int), 1, fileDados) != 1) {
         printf("Falha no processamento do arquivo.\n");
         return false;
     }
-
-    // atualiza o status para '0' para indicar que o arquivo está sendo modificado e volta o ponteiro para o início do arquivo para depois atualizar os contadores no cabeçalho
-    atualizarStatus(fileDados, '0', true);
 
     Registro reg = inicializarReg();
     int rrnNovoReg = -1;
@@ -283,7 +272,6 @@ bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores
         // salva o proxRRN atualizado no cabeçalho (sempre salva, pois ele pode ter mudado no else acima)
         fseek(fileDados, DADOS_OFF_PROXRRN, SEEK_SET);
         fwrite(&proxRRN, sizeof(int), 1, fileDados);
-        atualizarStatus(fileDados, '1', true);
     }
 
     if (reg.tamNomeEstacao > 0) free(reg.nomeEstacao);

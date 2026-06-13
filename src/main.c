@@ -344,6 +344,23 @@ int main(){
                 return 0;
             }
 
+            char statusDadosInsert;
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fread(&statusDadosInsert, sizeof(char), 1, fileDados);
+            
+            if (statusDadosInsert != '1') {
+                printf("Falha no processamento do arquivo.\n");
+                fclose(fileDados); 
+                fclose(fileIndice);
+                free(arquivoDados); 
+                free(arquivoIndice);
+                break;
+            }
+
+            char status = '0';
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fwrite(&status, sizeof(char), 1, fileDados);
+            
             int nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
 
@@ -371,7 +388,7 @@ int main(){
 
                 //reseta o ponteiro pro início do arquivo
                 //para inserções sucessivas
-                if(i != 0) fseek(fileDados, 0, SEEK_SET);
+                if(i != 0) fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
 
                 // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
                 int dummy; //não vai ser utilizado
@@ -383,6 +400,10 @@ int main(){
             fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
             fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
 
+            status = '1';
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fwrite(&status, sizeof(char), 1, fileDados);
+            
             fclose(fileDados);
             if (ok) BinarioNaTela(arquivoDados);
             break;
@@ -539,34 +560,48 @@ int main(){
             break;
         case 9: // INSERT COM INDEXAÇÃO
             arquivoDados = lerNomeArquivo();
-            if (!arquivoDados){
-                printf("Falha no processamento do arquivo.\n");
-                return 0;
-            }
-
             arquivoIndice = lerNomeArquivo();
-            if (!arquivoIndice){
+            if (!arquivoDados || !arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
                 return 0;
             }
 
             fileDados = fopen(arquivoDados, "rb+");
-            if (!fileDados) {
+            fileIndice = fopen(arquivoIndice, "rb+");
+            if (!fileDados || !fileIndice) {
                 printf("Falha no processamento do arquivo.\n");
                 return 0;
             }
 
-            fileIndice = fopen(arquivoIndice, "rb+");
-            if(!fileIndice){
+            char statusDadosInsertIndexado;
+            char statusIndiceInsertIndexado;
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fread(&statusDadosInsertIndexado, sizeof(char), 1, fileDados);
+            
+            fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+            fread(&statusIndiceInsertIndexado, sizeof(char), 1, fileIndice);
+            
+            if (statusDadosInsertIndexado != '1' || statusIndiceInsertIndexado != '1') {
                 printf("Falha no processamento do arquivo.\n");
-                return 0;
+                fclose(fileDados); 
+                fclose(fileIndice);
+                free(arquivoDados); 
+                free(arquivoIndice);
+                break;
             }
+            
+            char inconsistente = '0';
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fwrite(&inconsistente, sizeof(char), 1, fileDados);
+            
+            fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+            fwrite(&inconsistente, sizeof(char), 1, fileIndice);
 
             nInsercoes = 0; // número de operações de inserção a serem realizadas
             scanf("%d", &nInsercoes);
 
             //lê o nroNos ao abrir o arquivo para 
-            //só atualizar ao final das 'n' operações 
+            //só atualiza ao final das 'n' operações 
             int nroNos;
             if(fileIndice){
                 fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
@@ -598,18 +633,28 @@ int main(){
 
                 //reseta o ponteiro pro início do arquivo
                 //para inserções sucessivas
-                if(i != 0) fseek(fileDados, 0, SEEK_SET);
+                if(i != 0){
+                    fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
+                    fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
+                }
                 bool sucesso = insert(fileDados, fileIndice, valores, MAX_PARES, &nroNos);
             }
 
             calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
-            fseek(fileDados, 9, SEEK_SET);
+            fseek(fileDados, DADOS_OFF_NROESTACOES, SEEK_SET);
             fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
             fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
 
             //após as 'n' operações, atualiza o nroNos
             fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
             fwrite(&nroNos, sizeof(int), 1, fileIndice);
+
+            char consistente = '1';
+            fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+            fwrite(&consistente, sizeof(char), 1, fileDados);
+            
+            fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+            fwrite(&consistente, sizeof(char), 1, fileIndice);
 
             fclose(fileDados);
             if(fileIndice) fclose(fileIndice);
