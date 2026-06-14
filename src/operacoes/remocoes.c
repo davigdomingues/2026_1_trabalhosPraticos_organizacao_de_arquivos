@@ -4,11 +4,182 @@
 #include "../../headers/dados/cabecalho.h"
 #include "../../headers/indice/btree_cabecalho.h"
 #include "../../headers/utils.h"
+#include "../../headers/fornecidas.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
+void handleDeleteWhere(){
+    char *arquivoDados = NULL;
+    FILE *fileDados = NULL;
+    bool ok = false;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados) return;
+
+    fileDados = fopen(arquivoDados, "r+b");
+    if (!fileDados) {
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        return;
+    }
+
+    // Validação de consistência do cabeçalho
+    char statusDelSeq;
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fread(&statusDelSeq, sizeof(char), 1, fileDados);
+    if (statusDelSeq != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados);
+        free(arquivoDados);
+        return;
+    }
+
+    // Trava o arquivo definindo status como inconsistente para o lote de operações
+    char statusInconsistenteDel = '0';
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fwrite(&statusInconsistenteDel, sizeof(char), 1, fileDados);
+
+    int nRemocoes = 0;
+    scanf("%d", &nRemocoes);
+
+    CampoValor *paresDelete = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES); // pares da remoção atual
+    ok = true;
+    // loop operações de deleção
+    for (int i = 0; i < nRemocoes; i++) {
+        int mPares = 0;
+        scanf("%d", &mPares);
+        
+        lerPares(paresDelete, mPares); // leitura dos pares para a operação de remoção atual
+
+        if (ok && !deleteWhere(fileDados, paresDelete, mPares)) {
+            ok = false; // como falhou, não tenta as próximas
+        }
+
+        liberarPares(paresDelete, mPares); // liberação dos pares da operação de remoção atual antes de ler os próximos, para evitar acúmulo de memória alocada
+    }
+    free(paresDelete);
+
+    // Recálculo e sincronização dos contadores uma única vez ao término de todas as remoções
+    if (ok) {
+        recalcularContadores(fileDados);
+        
+        char statusConsistente = '1';
+        fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+        fwrite(&statusConsistente, sizeof(char), 1, fileDados);
+    }
+    fclose(fileDados);
+    BinarioNaTela(arquivoDados);
+    free(arquivoDados);
+}
+
+void handleDeleteWhereIndexado(){
+    char *arquivoDados = NULL;
+    char *arquivoIndice = NULL;
+    FILE *fileDados = NULL;
+    FILE *fileIndice = NULL;
+    bool ok = false;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    arquivoIndice = lerNomeArquivo();
+    if (!arquivoIndice){
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        return;
+    }
+
+    fileDados = fopen(arquivoDados, "r+b");
+    fileIndice = fopen(arquivoIndice, "r+b");
+    if (!fileDados || !fileIndice) {
+        printf("Falha no processamento do arquivo.\n");
+        if (fileDados) fclose(fileDados);
+        if (fileIndice) fclose(fileIndice);
+        free(arquivoDados); free(arquivoIndice);
+        return;
+    }
+
+    // Processo padrão de leitura e de validação do status dos arquivos
+    char statusDadosDel, statusIndiceDel;
+
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fread(&statusDadosDel, sizeof(char), 1, fileDados);
+
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+    fread(&statusIndiceDel, sizeof(char), 1, fileIndice);
+
+    if (statusDadosDel != '1' || statusIndiceDel != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados); fclose(fileIndice);
+        free(arquivoDados); free(arquivoIndice);
+        return;
+    }
+
+    // Processo de marcação dos arquivos como inconsistentes durante as operações
+    char statusInconsistente = '0';
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fwrite(&statusInconsistente, sizeof(char), 1, fileDados);
+
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+    fwrite(&statusInconsistente, sizeof(char), 1, fileIndice);
+
+    // Recuperação do número de nós do arquivo de índice para controle durante as remoções indexadas
+    int nroNosRemocao;
+    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+    fread(&nroNosRemocao, sizeof(int), 1, fileIndice);
+
+    // Leitura do número de operações de remoção indexada a serem realizadas
+    int nRemocoesIdx = 0;
+    scanf("%d", &nRemocoesIdx);
+
+    CampoValor *paresDeleteIdx = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+    ok = true;
+
+    // Loop das operações
+    for (int i = 0; i < nRemocoesIdx; i++) {
+        int mPares = 0;
+        scanf("%d", &mPares);
+        
+        lerPares(paresDeleteIdx, mPares);
+
+        if (ok && !deleteWhereIndexado(fileDados, fileIndice, paresDeleteIdx, mPares, &nroNosRemocao)) {
+            ok = false;
+        }
+
+        liberarPares(paresDeleteIdx, mPares); 
+    }
+    free(paresDeleteIdx);
+
+    // Atualização da contagem de nós no arquivo de índice
+    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+    fwrite(&nroNosRemocao, sizeof(int), 1, fileIndice);
+
+    // marcação de consistência
+    if (ok) {
+        char statusConsistente = '1';
+        fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+        fwrite(&statusConsistente, sizeof(char), 1, fileDados);
+        
+        fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+        fwrite(&statusConsistente, sizeof(char), 1, fileIndice);
+    }
+
+    fclose(fileDados);
+    fclose(fileIndice);
+
+    if (ok) {
+        BinarioNaTela(arquivoDados);
+        BinarioNaTela(arquivoIndice);
+    }
+    free(arquivoDados);
+    free(arquivoIndice);
+}
 
 
 bool deleteWhere(FILE *fileDados, CampoValor *pares, int mPares) {

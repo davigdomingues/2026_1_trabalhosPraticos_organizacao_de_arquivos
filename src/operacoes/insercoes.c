@@ -4,9 +4,11 @@
 #include "../../headers/indice/btree_cabecalho.h"
 #include "../../headers/indice/btree_no.h"
 #include "../../headers/utils.h"
+#include "../../headers/fornecidas.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima){
     //array que inclui os 4 elementos
@@ -220,6 +222,306 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
     }
 
     return 0;
+}
+
+bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEstacao){
+    fseek(fileDados, TAM_CABECALHO, SEEK_SET);
+
+    Registro *reg = (Registro*) malloc(sizeof(Registro));
+    if(!reg){
+        fclose(fileDados);
+        printf("Falha no processamento do arquivo.\n");
+        return true;
+    }
+
+    //cria um hashmap para depois obter, eficientemente, o nroEstacoes únicas
+    hashmap *mapEstacoes = hashmap_create();
+    //cria um hashmap para depois obter, eficientemente, o nroParesEstacoes únicas
+    hashmap *mapParesEstacoes = hashmap_create();
+
+    char removido;
+    while(fread(&removido, sizeof(char), 1, fileDados)){
+        if(removido == '1') {
+            fseek(fileDados, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
+            continue;
+        }
+
+        // garante estado limpo por iteração (evita usar ponteiros antigos quando o campo é nulo)
+        reg->tamNomeEstacao = 0; reg->nomeEstacao = "";
+        reg->tamNomeLinha = 0; reg->nomeLinha   = "";
+
+        fseek(fileDados, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
+
+        //lê os campos do registro e armazena na struct
+        fread(&reg->codEstacao, sizeof(int), 1, fileDados);
+        fread(&reg->codLinha, sizeof(int), 1, fileDados);
+        fread(&reg->codProxEstacao, sizeof(int), 1, fileDados);
+        fread(&reg->distProxEstacao, sizeof(int), 1, fileDados);
+        fread(&reg->codLinhaIntegra, sizeof(int), 1, fileDados);
+        fread(&reg->codEstIntegra, sizeof(int), 1, fileDados);
+
+        fread(&reg->tamNomeEstacao, sizeof(int), 1, fileDados);
+        if(reg->tamNomeEstacao != 0){
+            char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
+            if (!nomeEstacao) break;
+            fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, fileDados);
+            nomeEstacao[reg->tamNomeEstacao] = '\0';
+            reg->nomeEstacao = nomeEstacao;
+        }
+
+        fread(&reg->tamNomeLinha, sizeof(int), 1, fileDados);
+        if(reg->tamNomeLinha != 0){
+            char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha ) + 1); // +1 para o caractere nulo
+            if (!nomeLinha) { 
+                if (reg->tamNomeEstacao > 0) 
+                    free(reg->nomeEstacao); 
+                break; 
+            }
+
+            fread(nomeLinha, sizeof(char), reg->tamNomeLinha, fileDados);
+            nomeLinha[reg->tamNomeLinha] = '\0';
+            reg->nomeLinha = nomeLinha;
+
+
+            //salva no hashmap com o nome da estação sendo a chave, para garantir unicidade
+            //o valor salvo não importa
+            hashmap_set(mapEstacoes, strdup(reg->nomeEstacao), reg->tamNomeEstacao+1, reg->codEstacao);
+
+            if(reg->codProxEstacao != -1){
+                int menor = (reg->codEstacao < reg->codProxEstacao) ? reg->codEstacao : reg->codProxEstacao;
+                int maior = (reg->codEstacao < reg->codProxEstacao) ? reg->codProxEstacao : reg->codEstacao;
+
+                char *par = (char*) malloc(sizeof(char) * 10);
+                //constrói uma string para representar o par unicamente
+                snprintf(par, 10, "%d-%d", menor, maior);
+
+                //salva o par no hashmap
+                //o valor salvo não importa
+                hashmap_set(mapParesEstacoes, par, 10, reg->codProxEstacao);
+            }
+        }
+
+        int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
+        if(tamRestante != 0) fseek(fileDados, tamRestante, SEEK_CUR); //pula os $
+
+        if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
+        if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
+    }
+    *nroEstacoes = hashmap_size(mapEstacoes);
+    *nroParesEstacao = hashmap_size(mapParesEstacoes);
+
+    free(reg);
+
+    hashmap_iterate(mapEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapEstacoes);
+    hashmap_iterate(mapParesEstacoes, freeMapKeys, NULL);
+    hashmap_free(mapParesEstacoes);
+
+    return true;
+}
+
+
+void handleInsert(){
+    char *arquivoDados = NULL;
+    FILE *fileDados = NULL;
+    int nroEstacoes;
+    int nroParesEstacoes;
+    bool ok = false;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    fileDados = fopen(arquivoDados, "rb+");
+    if (!fileDados) {
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        return;
+    }
+
+    char statusDadosInsert;
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fread(&statusDadosInsert, sizeof(char), 1, fileDados);
+
+    if (statusDadosInsert != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados); 
+        free(arquivoDados); 
+        return;
+    }
+
+    char status = '0';
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fwrite(&status, sizeof(char), 1, fileDados);
+
+    int nInsercoes = 0; // número de operações de inserção a serem realizadas
+    scanf("%d", &nInsercoes);
+
+    ok = true; // se houver falha em alguma das inserções, ok = false e as próximas inserções não são tentadas
+
+    // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
+    for (int i = 0; i < nInsercoes; i++) {
+        CampoValor valores[MAX_PARES];
+        char valoresStr[MAX_PARES][LIMITE];
+        valores[0].campo = "codEstacao";
+        valores[1].campo = "nomeEstacao";
+        valores[2].campo = "codLinha";
+        valores[3].campo = "nomeLinha";
+        valores[4].campo = "codProxEstacao";
+        valores[5].campo = "distProxEstacao";
+        valores[6].campo = "codLinhaIntegra";
+        valores[7].campo = "codEstacaoIntegra";
+
+        // lê os valores como string, mesmo os inteiros, para padronizar
+        // se o valor for nulo, salva como string vazia
+        for (int k = 0; k < MAX_PARES; k++) {
+            valores[k].valor = valoresStr[k];
+            ScanQuoteString(valores[k].valor);
+        }
+
+        //reseta o ponteiro pro início do arquivo
+        //para inserções sucessivas
+        if(i != 0) fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
+
+        // se houver falha na inserção, ok = false e as próximas inserções não são tentadas
+        int dummy; //não vai ser utilizado
+        if (ok && !insert(fileDados, NULL, valores, MAX_PARES, &dummy)) ok = false;
+    }
+
+    calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
+    fseek(fileDados, 9, SEEK_SET);
+    fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
+    fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
+
+    status = '1';
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fwrite(&status, sizeof(char), 1, fileDados);
+    fclose(fileDados);
+    BinarioNaTela(arquivoDados);
+
+    free(arquivoDados);
+    return;
+}
+
+void handleInsertIndexado(){
+    char *arquivoDados = NULL;
+    char *arquivoIndice = NULL;
+    FILE *fileDados = NULL;
+    FILE *fileIndice = NULL;
+    int nroEstacoes;
+    int nroParesEstacoes;
+    bool ok = false;
+    int nInsercoes = 0;
+
+    arquivoDados = lerNomeArquivo();
+    arquivoIndice = lerNomeArquivo();
+    if (!arquivoDados || !arquivoIndice){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    fileDados = fopen(arquivoDados, "rb+");
+    fileIndice = fopen(arquivoIndice, "rb+");
+    if (!fileDados || !fileIndice) {
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        free(arquivoIndice);
+        return;
+    }
+
+    char statusDadosInsertIndexado;
+    char statusIndiceInsertIndexado;
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fread(&statusDadosInsertIndexado, sizeof(char), 1, fileDados);
+
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+    fread(&statusIndiceInsertIndexado, sizeof(char), 1, fileIndice);
+
+    if (statusDadosInsertIndexado != '1' || statusIndiceInsertIndexado != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados); 
+        fclose(fileIndice);
+        free(arquivoDados); 
+        free(arquivoIndice);
+        return;
+    }
+
+    char inconsistente = '0';
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fwrite(&inconsistente, sizeof(char), 1, fileDados);
+
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+    fwrite(&inconsistente, sizeof(char), 1, fileIndice);
+
+    nInsercoes = 0; // número de operações de inserção a serem realizadas
+    scanf("%d", &nInsercoes);
+
+    //lê o nroNos ao abrir o arquivo para 
+    //só atualiza ao final das 'n' operações 
+    int nroNos;
+    if(fileIndice){
+        fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+        fread(&nroNos, sizeof(int), 1, fileIndice);
+    }
+
+    // cada inserção inclui os valores de todos os campos do registro, mesmo que sejam nulos
+    for (int i = 0; i < nInsercoes; i++) {
+        CampoValor valores[MAX_PARES];
+        char valoresStr[MAX_PARES][LIMITE];
+        valores[0].campo = "codEstacao";
+        valores[1].campo = "nomeEstacao";
+        valores[2].campo = "codLinha";
+        valores[3].campo = "nomeLinha";
+        valores[4].campo = "codProxEstacao";
+        valores[5].campo = "distProxEstacao";
+        valores[6].campo = "codLinhaIntegra";
+        valores[7].campo = "codEstacaoIntegra";
+
+        // lê os valores como string, mesmo os inteiros, para padronizar
+        // se o valor for nulo, salva como string vazia
+        for (int k = 0; k < MAX_PARES; k++) {
+            valores[k].valor = valoresStr[k];
+
+            int n;
+            if(scanf("%d", &n)) snprintf(valores[k].valor, sizeof(valores[k].valor), "%d", n);
+            else ScanQuoteString(valores[k].valor);
+        }
+
+        //reseta o ponteiro pro início do arquivo
+        //para inserções sucessivas
+        if(i != 0){
+            fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
+            fseek(fileIndice, BTREE_OFF_TOPO, SEEK_SET);
+        }
+        bool sucesso = insert(fileDados, fileIndice, valores, MAX_PARES, &nroNos);
+    }
+
+    calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
+    fseek(fileDados, DADOS_OFF_NROESTACOES, SEEK_SET);
+    fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
+    fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
+
+    //após as 'n' operações, atualiza o nroNos
+    fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
+    fwrite(&nroNos, sizeof(int), 1, fileIndice);
+
+    char consistente = '1';
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fwrite(&consistente, sizeof(char), 1, fileDados);
+
+    fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+    fwrite(&consistente, sizeof(char), 1, fileIndice);
+
+    fclose(fileDados);
+    if(fileIndice) fclose(fileIndice);
+
+    BinarioNaTela(arquivoDados);
+    BinarioNaTela(arquivoIndice);
+
+    free(arquivoDados);
+    free(arquivoIndice);
 }
 
 bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores, int *nroNos) {

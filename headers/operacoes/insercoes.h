@@ -77,6 +77,11 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
  */
 No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *promoPraCima);
 
+bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEstacao);
+
+void handleInsert();
+void handleInsertIndexado();
+
 /** 
  * @brief insere um novo registro no arquivo de dados e atualiza o arquivo de índice da árvore B.
  * @param fileDados arquivo de dados

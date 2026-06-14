@@ -6,6 +6,8 @@
 #include "../utils.h"
 #include "../dados/registro.h"
 
+void handleUpdate();
+
 /** @brief Dado um arquivo binário, atualiza os registros que correspondem aos critérios de busca especificados.
  * 
  * @param fileDados ponteiro para o arquivo binário de entrada

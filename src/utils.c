@@ -4,6 +4,58 @@
 #include <string.h>
 #include "../headers/utils.h"
 #include "../headers/indice/btree_no.h"
+#include "../headers/fornecidas.h"
+
+char *lerNomeArquivo(void) {
+    char *s = (char*) malloc(TAM_ARQUIVO); // aloca o máximo necessário para o nome do arquivo, incluindo o caractere nulo
+    if (!s) return NULL;
+
+    // uso de TAM_ARQUIVO - 1 para limitar a string, em que a forma direta é montada em runtime
+    int width = TAM_ARQUIVO - 1;
+    if (width < 1) { 
+        free(s); 
+        return NULL; 
+    }
+
+    // formatação para ler uma string sem espaços, limitada ao tamanho do buffer alocado
+    char fmt[32];
+    snprintf(fmt, sizeof(fmt), "%%%ds", width); // o %%%ds é usado para criar a formatação correta, resultando na leitura até TAM_ARQUIVO - 1 caracteres
+
+    // se a leitura falhar, libera a memória e retorna NULL
+    if (scanf(fmt, s) != 1) {
+        free(s);
+        return NULL;
+    }
+    return s;
+}
+
+void liberarPares(CampoValor *pares, int mPares) {
+    for (int j = 0; j < mPares; j++) {
+        free(pares[j].campo);
+        free(pares[j].valor);
+    }
+}
+
+void lerPares(CampoValor *pares, int mPares){
+    for (int j = 0; j < mPares; j++) {
+        char *campo = (char*) malloc(sizeof(char) * TAM_CAMPO);
+        char *valor = (char*) malloc(sizeof(char) * TAM_VALOR);
+
+        // evita overflow
+        scanf("%19s", campo);
+
+        int valorInt;
+        if (scanf("%d", &valorInt) <= 0) {
+            ScanQuoteString(valor);
+        } else {
+            // TAM_VALOR é o tamanho do buffer alocado
+            snprintf(valor, TAM_VALOR, "%d", valorInt);
+        }
+
+        pares[j] = (CampoValor){.campo = campo, .valor = valor};
+    }
+
+}
 
 int freeMapKeys(const void* key, size_t ksize, uintptr_t value, void* usr){
     free((void*) key);

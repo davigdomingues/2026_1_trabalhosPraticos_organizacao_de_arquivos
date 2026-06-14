@@ -6,6 +6,10 @@
 #include "../utils.h"
 #include "../dados/registro.h"
 
+void handleCreateIndex();
+
+void handleCreate();
+
 /**
  * @brief A partir de um arquivo CSV, cria um arquivo binário contendo registros de estações de metrô/trem.
  * 

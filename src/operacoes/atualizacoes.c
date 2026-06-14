@@ -3,11 +3,92 @@
 #include "../../headers/dados/registro.h"
 #include "../../headers/dados/cabecalho.h"
 #include "../../headers/utils.h"
+#include "../../headers/fornecidas.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void handleUpdate(){
+    char *arquivoDados = NULL;
+    FILE *fileDados = NULL;
+    bool ok = false;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados) return;
+
+    fileDados = fopen(arquivoDados, "r+b");
+    if (!fileDados) {
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        return;
+    }
+
+    // Validação de consistência do cabeçalho
+    char statusUpdSeq;
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fread(&statusUpdSeq, sizeof(char), 1, fileDados);
+    if (statusUpdSeq != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados);
+        free(arquivoDados);
+        return;
+    }
+
+    // Modifica status para modulação inconsistente em lote
+    char statusInconsistenteUpd = '0';
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+    fwrite(&statusInconsistenteUpd, sizeof(char), 1, fileDados);
+
+    int nAtualizacoes = 0; // número de operações de atualização a serem realizadas
+    scanf("%d", &nAtualizacoes);
+
+    // busca e atualização (pares campo-valor)
+    CampoValor *paresBusca = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+    CampoValor *paresUpdate = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+
+    // loop das operações de atualização
+    ok = true;
+
+    for (int i = 0; i < nAtualizacoes; i++) {
+        int mParesBusca = 0;
+        scanf("%d", &mParesBusca);
+        lerPares(paresBusca, mParesBusca);
+
+        int mParesUpdate = 0; // número de pares para a parte de atualização da operação de atualização atual
+        scanf("%d", &mParesUpdate);
+        lerPares(paresUpdate, mParesUpdate);
+
+        // se houver falha em alguma das atualizações, ok = false e as próximas atualizações não são tentadas
+        if (ok && !update(fileDados, paresBusca, mParesBusca, paresUpdate, mParesUpdate)) {
+            ok = false;
+        }
+
+        // liberação dos pares da operação de atualização atual antes de ler os próximos
+        liberarPares(paresBusca, mParesBusca);
+        liberarPares(paresUpdate, mParesUpdate);
+
+        if (!ok) break; // encerra antes de completar as N atualizações
+    }
+
+    free(paresBusca);
+    free(paresUpdate);
+
+    // Atualiza contadores uma única vez ao término e redefine a consistência do cabeçalho
+    if (ok) {
+        recalcularContadores(fileDados);
+        
+        char statusConsistente = '1';
+        fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
+        fwrite(&statusConsistente, sizeof(char), 1, fileDados);
+    }
+
+    fclose(fileDados);
+    BinarioNaTela(arquivoDados);
+    free(arquivoDados);
+    return;
+}
 
 
 bool update(FILE *fileDados, CampoValor *paresBusca, int mParesBusca, CampoValor *paresUpdate, int mParesUpdate) {

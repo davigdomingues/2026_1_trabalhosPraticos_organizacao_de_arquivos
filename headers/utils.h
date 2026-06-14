@@ -14,6 +14,12 @@ typedef struct CampoValor {
 // ordem fixa dos campos do registro para indexação via array
 #define NUM_CAMPOS_REGISTRO 8
 
+#define TAM_ARQUIVO 100 // tamanho máximo para nome de arquivo
+#define TAM_CAMPO 20
+#define TAM_VALOR 50
+#define MAX_PARES 8 // número máximo de pares
+
+
 typedef enum CampoRegistroId {
 	CAMPO_COD_ESTACAO = 0,
 	CAMPO_NOME_ESTACAO = 1,
@@ -24,6 +30,27 @@ typedef enum CampoRegistroId {
 	CAMPO_COD_LINHA_INTEGRA = 6,
 	CAMPO_COD_EST_INTEGRA = 7
 } CampoRegistroId;
+
+/** @brief lê um nome de arquivo (token sem espaços) e devolve uma string alocada
+ * 
+ * @return ponteiro para a string alocada, ou NULL em caso de erro
+ */
+char *lerNomeArquivo(void);
+
+/** @brief libera a memória alocada para os campos e os valores de um array de CampoValor
+ * 
+ * @param pares array de CampoValor a ter sua memória liberada
+ * @param mPares tamanho do array de pares
+ */
+void liberarPares(CampoValor *pares, int mPares);
+
+
+/** @brief lê os pares campo-valor da entrada padrão e armazená-los em um array de CampoValor
+ * 
+ * @param pares array de CampoValor a ser preenchido
+ * @param mPares tamanho do array de pares
+ */
+void lerPares(CampoValor *pares, int mPares);
 
 /**
  * @brief libera a memória alocada dinamicamente de uma chave string de um hashmap

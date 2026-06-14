@@ -3,13 +3,113 @@
 #include "../../headers/dados/registro.h"
 #include "../../headers/dados/cabecalho.h"
 #include "../../headers/indice/btree_cabecalho.h"
-#include "../../headers/utils.h"
+#include "../../headers/fornecidas.h"
 #include "../../c-hashmap/map.h" //usando uma biblioteca, créditos para Mashpoe.
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void handleCreateIndex(){
+    char *arquivoDados = NULL;
+    char *arquivoSaida = NULL;
+    char *arquivoIndice = NULL;
+    FILE *fileDados = NULL;
+    FILE *fileIndice = NULL;
+    bool ok = false;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados) return;
+
+    arquivoIndice = lerNomeArquivo();
+    if (!arquivoIndice){
+        free(arquivoDados);
+        return;
+    }
+
+    fileDados = fopen(arquivoDados, "rb");
+    fileIndice = fopen(arquivoIndice, "wb+");
+
+    if (!fileDados || !fileIndice) {
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        free(arquivoIndice);
+        if (fileDados) fclose(fileDados);
+        if (fileIndice) fclose(fileIndice);
+        return;
+    }
+
+    // Leitura padrão do status do arquivo de dados
+    char statusDadosCreate;
+    fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET); // Garante que a leitura do status seja feita no local correto do cabeçalho
+    if (fread(&statusDadosCreate, sizeof(char), 1, fileDados) != 1 || statusDadosCreate != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(fileDados); fclose(fileIndice);
+        free(arquivoDados);
+        free(arquivoIndice);
+        return;
+    }
+
+    ok = criarIndiceArvoreB(fileDados, fileIndice);
+
+    // Escrita padrão do status do arquivo de índice
+    if (ok) {
+        char statusConsistente = '1';
+        fseek(fileIndice, BTREE_OFF_STATUS, SEEK_SET);
+        fwrite(&statusConsistente, sizeof(char), 1, fileIndice);
+    }
+    fclose(fileDados);
+    fclose(fileIndice);
+    if (ok) BinarioNaTela(arquivoIndice);
+    free(arquivoDados);
+    free(arquivoIndice);
+
+}
+
+void handleCreate(){
+    char *arquivoDados = NULL;
+    char *arquivoSaida = NULL;
+    FILE *fileDados = NULL;
+    FILE *fileIndice = NULL;
+    bool ok = false;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados) return;
+
+    arquivoSaida = lerNomeArquivo();
+    if (!arquivoSaida) {
+        free(arquivoDados);
+        return;
+    }
+
+    FILE *fileCsv = fopen(arquivoDados, "r");
+    FILE *fileBin = fopen(arquivoSaida, "wb+");
+    if (!fileCsv || !fileBin) {
+        printf("Falha no processamento do arquivo.\n");
+        if (fileCsv) fclose(fileCsv);
+        if (fileBin) fclose(fileBin);
+        free(arquivoDados);
+        free(arquivoSaida);
+        return;
+    }
+
+    // Executa a carga útil de parseamento e gravação
+    ok = create(fileCsv, fileBin);
+
+    // Consolida a consistência do arquivo gerado
+    if (ok) {
+        char statusConsistente = '1';
+        fseek(fileBin, DADOS_OFF_STATUS, SEEK_SET);
+        fwrite(&statusConsistente, sizeof(char), 1, fileBin);
+    }
+    fclose(fileCsv);
+    fclose(fileBin);
+    BinarioNaTela(arquivoSaida);
+
+    free(arquivoDados);
+    free(arquivoSaida);
+}
 
 bool create(FILE *csv, FILE *fileBin) {
     int proxRRN = 0;

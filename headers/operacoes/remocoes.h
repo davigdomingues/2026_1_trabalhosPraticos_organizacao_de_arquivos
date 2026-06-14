@@ -12,6 +12,9 @@
 #define CHAVE_NAO_ENCONTRADA 0
 #define UNDERFLOW_PENDENTE 2
 
+void handleDeleteWhere();
+void handleDeleteWhereIndexado();
+
 /** @brief Dado um arquivo binário, remove logicamente os registros que correspondem aos critérios de busca especificados.
  * 
  * @param fileDados ponteiro para o arquivo binário de entrada

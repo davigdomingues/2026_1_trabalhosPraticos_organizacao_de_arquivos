@@ -6,6 +6,8 @@
 #include "../utils.h"
 #include "../dados/registro.h"
 
+void handleSelectAll();
+
 /**
  * @brief Dado um arquivo binário, imprime na tela todos os registros não logicamente removidos.
  * * @param file ponteiro para o arquivo binário de entrada aberto
@@ -24,6 +26,9 @@ void selectAll(FILE *file);
  * @return int rrn do primeiro resultado encontrado ou indicador de sucesso/falha da operação
  */
 int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *par, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek);
+
+void handleSelectAllWhere();
+void handleSelectWhereIndexado();
 
 /**
  * @brief Dado um arquivo binário, imprime na tela todos os registros não logicamente removidos que satisfazem os critérios de busca.

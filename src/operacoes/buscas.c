@@ -11,6 +11,129 @@
 #include <stdlib.h>
 #include <string.h>
 
+void handleSelectAll(){
+    char *arquivoDados = NULL;
+    FILE *fileDados = NULL;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    fileDados = fopen(arquivoDados, "rb");
+    if (!fileDados) {
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+    selectAll(fileDados);
+    free(arquivoDados);
+    return;
+}
+
+void handleSelectAllWhere(){
+    char *arquivoDados = NULL;
+    FILE *fileDados = NULL;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    fileDados = fopen(arquivoDados, "rb");
+    if (!fileDados) {
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    int nBuscas = 0;
+    scanf("%d", &nBuscas);
+
+    CampoValor *pares = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+    for (int i = 0; i < nBuscas; i++) {
+        int mPares = 0;
+        scanf("%d", &mPares);
+
+        lerPares(pares, mPares);
+
+        selectAllWhere(fileDados, NULL, pares, mPares);
+
+        liberarPares(pares, mPares);
+    }
+    free(pares);
+    fclose(fileDados);
+}
+
+void handleSelectWhereIndexado(){
+    char *arquivoDados = NULL;
+    char *arquivoSaida = NULL;
+    char *arquivoIndice = NULL;
+    FILE *fileDados = NULL;
+    FILE *fileIndice = NULL;
+    bool ok = false;
+    int nBuscas = 0;
+    CampoValor *pares = NULL;
+
+    arquivoDados = lerNomeArquivo();
+    if (!arquivoDados){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    arquivoIndice = lerNomeArquivo();
+    int conversao = atoi(arquivoIndice);
+    if (!arquivoIndice){
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        return;
+    } 
+    //se o que era pra ser o nome do arquivo de índice
+    //for um número
+    else if(conversao > 0){
+        //então o arquivo de índice não foi especificado
+        arquivoIndice = NULL;
+    }
+
+    fileDados = fopen(arquivoDados, "rb");
+    if (!fileDados) {
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados);
+        free(arquivoIndice);
+        return;
+    }
+
+    //se o arquivo de índice foi especificado
+    if(arquivoIndice != NULL){
+        //abre o arquivo de índice
+        fileIndice = fopen(arquivoIndice, "rb");
+        //lê o número de buscas
+        nBuscas = 0;
+        scanf("%d", &nBuscas);
+    } else {
+        //se o arquivo de índice não foi especificado
+        //"conversao" tem o número de buscas
+        nBuscas = conversao;
+    }
+
+    pares = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
+    for (int i = 0; i < nBuscas; i++) {
+        int mPares = 0;
+        scanf("%d", &mPares);
+
+        lerPares(pares, mPares);
+
+        selectAllWhere(fileDados, fileIndice, pares, mPares);
+        liberarPares(pares, mPares);
+    }
+
+    free(pares);
+    free(arquivoDados);
+    free(arquivoIndice);
+    fclose(fileDados);
+    if(fileIndice) fclose(fileIndice);
+}
+
 // verifica se um registro corresponde a um par campo-valor de busca, considerando os campos nomeEstacao e nomeLinha para comparação de strings
 bool registroMatchParBusca(const Registro *reg, const char *nomeEstacao, const char *nomeLinha, const CampoValor *par) {
     char *campo = par->campo;
