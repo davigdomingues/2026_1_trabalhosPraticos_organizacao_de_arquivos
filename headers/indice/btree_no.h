@@ -4,11 +4,11 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define TAM_NO 53 // 4 bytes para proximo + 4 bytes para tipoNo + 4 bytes para nroChaves + (3 chaves * 4 bytes) + (3 ponteiros de dados * 4 bytes) + (4 ponteiros de filhos * 4 bytes) + 1 byte para removido = 53 bytes
-#define NO_FOLHA -1 // Valor especial para indicar que um nó é folha
-#define NO_RAIZ 0 // Valor especial para indicar que um nó é a raiz da árvore
-#define NO_INTERMEDIARIO 1 // Valor especial para indicar que um nó é intermediário
-#define NO_NAO_INICIALIZADO 10 // Valor especial para indicar que um nó não foi inicializado
+#define TAM_NO 53 // 4 bytes para proximo + 4 para tipoNo + 4 para nroChaves + (3 chaves * 4) + (3 ponteiros de dados * 4) + (4 ponteiros de filhos * 4) + 1 para removido
+#define NO_FOLHA -1 // Valor para indicar que um nó é folha
+#define NO_RAIZ 0 // Valor para indicar que um nó é a raiz da árvore
+#define NO_INTERMEDIARIO 1 // Valor para indicar que um nó é intermediário
+#define NO_NAO_INICIALIZADO 10 // Valor para indicar que um nó não foi inicializado
 #define NRO_MAX_CHAVES 3 // Ordem 4, ou seja, no máximo 3 chaves por nó
 #define BTREE_NO_INICIO(rrn) (TAM_BTREE_CABECALHO + (rrn) * TAM_NO) // Macro para calcular o deslocamento inicial de um nó dado seu RRN
 

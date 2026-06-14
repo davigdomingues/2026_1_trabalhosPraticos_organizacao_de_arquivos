@@ -148,8 +148,8 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
         // Lê o campo de remoção para verificar se o registro está marcado como removido
         if (fread(&removido, sizeof(char), 1, fileDados) != 1) break;
 
-        if (removido == '1') { // Se o registro estiver marcado como removido, pula para o próximo registro
-            if (fseek(fileDados, TAM_REG - 1, SEEK_CUR) != 0) { // Já leu o campo de remoção, então subtrai 1 do tamanho total do registro
+        if (removido == '1') { // Se removido, pula para o próximo registro
+            if (fseek(fileDados, TAM_REG - 1, SEEK_CUR) != 0) { // Subtrai 1 do tamanho total do registro
                 ok = false;
                 break;
             }
@@ -157,13 +157,13 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
             continue;
         }
 
-        // Lê o campo de chave (codEstacao) para inserção no índice
+        // Lê o campo de chave (codEstacao) para inserção
         if (fread(&lixo, sizeof(int), 1, fileDados) != 1 || fread(&chave, sizeof(int), 1, fileDados) != 1) {
             ok = false;
             break;
         }
 
-        // Pula os campos que não são necessários para a construção do índice
+        // Pula os campos que não são necessários
         for (i = 0; i < 5; i++) {
             if (fread(&lixo, sizeof(int), 1, fileDados) != 1) {
                 ok = false;
@@ -184,7 +184,7 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
             break;
         }
 
-        // Lê o tamanho do campo de nome da linha para pular o dado variável
+        // Lê o tamanho do campo de nome da linha
         if (fread(&tamNomeLinha, sizeof(int), 1, fileDados) != 1) {
             ok = false;
             break;
@@ -196,14 +196,14 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
             break;
         }
 
-        // Calcula o deslocamento para o próximo registro, considerando os campos de tamanho variável e posiciona o ponteiro do arquivo de dados para o início do próximo registro
+        // Calcula o deslocamento para o próximo registro e posiciona o ponteiro do arquivo de dados para o início do próximo registro
         i = TAM_LIVRE_REG(tamNomeEstacao, tamNomeLinha);
         if (i > 0 && fseek(fileDados, i, SEEK_CUR) != 0) {
             ok = false;
             break;
         }
 
-        // Insere a chave e o ponteiro para o registro no arquivo de índice usando a função insertIndice e incrementa o contador de nós do índice
+        // Insere a chave e o ponteiro para o registro no arquivo de índice e incrementa o contador de nós do índice
         if (insertIndice(fileIndice, chave, (int)offsetRegistro, &nroNos) == ERRO_DE_INSERCAO) {
             ok = false;
             break;
@@ -212,7 +212,7 @@ bool criarIndiceArvoreB(FILE *fileDados, FILE *fileIndice) {
         offsetRegistro += TAM_REG;
     }
 
-    if (ok) { // Se a construção do índice foi bem-sucedida, atualiza o status do arquivo de índice para '1' (consistente) e o número de nós no cabeçalho do índice
+    if (ok) { // Se foi bem-sucedida, atualiza o status do arquivo de índice para '1' e o número de nós
         fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
         fwrite(&nroNos, sizeof(int), 1, fileIndice);
     }

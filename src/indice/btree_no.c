@@ -29,16 +29,16 @@ No *inicializarNo(){
 
 void lerNo(FILE *fileIndice, No *no){
     fread(&no->removido, sizeof(char), 1, fileIndice); // lê a flag de removido para verificar se o nó está logicamente excluído
-    fread(&no->proximo, sizeof(int), 1, fileIndice); // lê o campo de encadeamento para nós removidos, caso seja necessário reaproveitar esse nó no futuro
-    fread(&no->tipoNo, sizeof(int), 1, fileIndice); // lê o tipo do nó (folha ou interna) para determinar como interpretar os campos seguintes
-    fread(&no->nroChaves, sizeof(int), 1, fileIndice); // lê o número de chaves atualmente armazenadas no nó, para saber quantos campos de chaves e ponteiros são válidos
-    fread(&no->C[0], sizeof(int), 1, fileIndice); // lê a primeira chave do nó
+    fread(&no->proximo, sizeof(int), 1, fileIndice); // lê o campo de encadeamento para nós removidos
+    fread(&no->tipoNo, sizeof(int), 1, fileIndice); // lê o tipo do nó para determinar como interpretar os campos seguintes
+    fread(&no->nroChaves, sizeof(int), 1, fileIndice); // lê o número de chaves atualmente armazenadas
+    fread(&no->C[0], sizeof(int), 1, fileIndice); // lê a primeira chave
     fread(&no->Pr[0], sizeof(int), 1, fileIndice); // lê o ponteiro para o registro associado à primeira chave, se for um nó folha
     fread(&no->C[1], sizeof(int), 1, fileIndice); // lê a segunda chave do nó
-    fread(&no->Pr[1], sizeof(int), 1, fileIndice); // lê o ponteiro para o registro associado à segunda chave, se for um nó folha
-    fread(&no->C[2], sizeof(int), 1, fileIndice); // lê a terceira chave do nó
-    fread(&no->Pr[2], sizeof(int), 1, fileIndice); // lê o ponteiro para o registro associado à terceira chave, se for um nó folha
-    fread(&no->P, sizeof(int) * (NRO_MAX_CHAVES+1), 1, fileIndice); // lê os ponteiros para as subárvores (filhos) do nó, se for um nó interno, ou mantém como -1 se for um nó folha
+    fread(&no->Pr[1], sizeof(int), 1, fileIndice); // lê o ponteiro associado à segunda chave
+    fread(&no->C[2], sizeof(int), 1, fileIndice); // lê a terceira chave
+    fread(&no->Pr[2], sizeof(int), 1, fileIndice); // lê o ponteiro para à terceira chave
+    fread(&no->P, sizeof(int) * (NRO_MAX_CHAVES+1), 1, fileIndice); // lê os ponteiros para as subárvores do nó, se for um nó interno, ou mantém como -1 se for um nó folha
 }
 
 No *criarNo(FILE *fileIndice, int *novoRRN){
@@ -79,16 +79,16 @@ No *criarNo(FILE *fileIndice, int *novoRRN){
 
 bool escreverNo(FILE *fileIndice, No *no){
     fwrite(&no->removido, sizeof(char), 1, fileIndice); // escreve a flag de removido para indicar se o nó está logicamente excluído ou não
-    fwrite(&no->proximo, sizeof(int), 1, fileIndice); // escreve o campo de encadeamento para nós removidos, caso seja necessário reaproveitar esse nó no futuro
-    fwrite(&no->tipoNo, sizeof(int), 1, fileIndice); // escreve o tipo do nó (folha ou interna) para saber interpretar os campos seguintes
-    fwrite(&no->nroChaves, sizeof(int), 1, fileIndice); // escreve o número de chaves atualmente armazenadas no nó, para se saber quantos campos de chaves e ponteiros são válidos
+    fwrite(&no->proximo, sizeof(int), 1, fileIndice); // escreve o campo de encadeamento para nós removidos
+    fwrite(&no->tipoNo, sizeof(int), 1, fileIndice); // escreve o tipo do nó para saber interpretar os campos seguintes
+    fwrite(&no->nroChaves, sizeof(int), 1, fileIndice); // escreve o número de chaves atualmente armazenadas no nó
     fwrite(&no->C[0], sizeof(int), 1, fileIndice); // escreve a primeira chave do nó
     fwrite(&no->Pr[0], sizeof(int), 1, fileIndice); // escreve o ponteiro para o registro associado à primeira chave, se for um nó folha
-    fwrite(&no->C[1], sizeof(int), 1, fileIndice); // escreve a segunda chave do nó
-    fwrite(&no->Pr[1], sizeof(int), 1, fileIndice); // escreve o ponteiro para o registro associado à segunda chave, se for um nó folha
-    fwrite(&no->C[2], sizeof(int), 1, fileIndice); // escreve a terceira chave do nó
-    fwrite(&no->Pr[2], sizeof(int), 1, fileIndice); // escreve o ponteiro para o registro associado à terceira chave, se for um nó folha
-    fwrite(&no->P, sizeof(int) * (NRO_MAX_CHAVES+1), 1, fileIndice); // escreve os ponteiros para as subárvores (filhos) do nó, se for um nó interno, ou mantém como -1 se for um nó folha
+    fwrite(&no->C[1], sizeof(int), 1, fileIndice); // escreve a segunda chave
+    fwrite(&no->Pr[1], sizeof(int), 1, fileIndice); // escreve o ponteiro para o registro associado à segunda chave
+    fwrite(&no->C[2], sizeof(int), 1, fileIndice); // escreve a terceira chave
+    fwrite(&no->Pr[2], sizeof(int), 1, fileIndice); // escreve o ponteiro para à terceira chave
+    fwrite(&no->P, sizeof(int) * (NRO_MAX_CHAVES+1), 1, fileIndice); // escreve os ponteiros para as subárvores do nó
     return true;
 }
 

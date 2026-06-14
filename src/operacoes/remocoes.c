@@ -117,56 +117,56 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
     lerNo(fileIndice, noAtual);
 
     int pos = 0;
-    // Encontra a posição onde a chave deveria estar, ou o ponteiro para a subárvore onde ela deveria estar se não for encontrada no nó atual
+    // Encontra onde a chave deveria estar (chave ou ponteiro)
     while (pos < noAtual->nroChaves && noAtual->C[pos] < chave) pos++;
 
-    // Verifica se a chave foi encontrada na posição identificada
+    // Verifica se a chave foi encontrada
     bool encontrada = (pos < noAtual->nroChaves && noAtual->C[pos] == chave);
 
     if (encontrada) {
-        if (noAtual->P[0] == -1) { // A chave a ser removida está em uma folha, pode ser removida diretamente sem necessidade de promoção
-            // Remoção física do registro na folha via shift (contiguidade mantida)
+        if (noAtual->P[0] == -1) { // A chave a ser removida está em uma folha
+            // Remoção via shift
             for (int i = pos; i < noAtual->nroChaves - 1; i++) {
                 noAtual->C[i] = noAtual->C[i+1];
                 noAtual->Pr[i] = noAtual->Pr[i+1];
             }
 
-            // Decrementa o número de chaves do nó e limpa os campos restantes para manter a consistência dos dados
+            // consistência dos dados mantida
             noAtual->nroChaves--;
             noAtual->C[noAtual->nroChaves] = -1;
             noAtual->Pr[noAtual->nroChaves] = -1;            
-        } else { // A chave a ser removida está em um nó interno, precisa ser promovida para manter as propriedades da Árvore-B
+        } else { // A chave a ser removida está em um nó interno
             // Substituição pela chave sucessora em nós internos
             int rrnSucessor = noAtual->P[pos+1];
             No *sucessor = inicializarNo();
             fseek(fileIndice, BTREE_NO_INICIO(rrnSucessor), SEEK_SET);
             lerNo(fileIndice, sucessor);
             
-            // Desce pela subárvore da direita para encontrar o sucessor in-order, que é o menor elemento dessa subárvore
+            // Desce pela subárvore da direita para encontrar o sucessor
             while (sucessor->P[0] != -1) {
                 rrnSucessor = sucessor->P[0];
                 fseek(fileIndice, BTREE_NO_INICIO(rrnSucessor), SEEK_SET);
                 lerNo(fileIndice, sucessor);
             }
             
-            // O sucessor encontrado é o menor elemento da subárvore direita, que pode ser promovido para substituir a chave a ser removida no nó atual
+            // O sucessor encontrado é o menor elemento da subárvore direita
             int chaveSucessora = sucessor->C[0];
             int ponteiroDadosSucessor = sucessor->Pr[0];
             free(sucessor);
 
-            // Promove o sucessor para a posição da chave a ser removida no nó atual
+            // Promove o sucessor para a posição da chave a ser removida
             noAtual->C[pos] = chaveSucessora;
             noAtual->Pr[pos] = ponteiroDadosSucessor;
             fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET);
             escreverNo(fileIndice, noAtual);
 
-            // Chamada recursiva para apagar a sucessora promovida
+            // Chamada para apagar a sucessora promovida
             int statusSub = removerRecursivo(fileIndice, noAtual->P[pos+1], chaveSucessora, nroNos);
             if (statusSub == UNDERFLOW_PENDENTE) {
                 tratarUnderflow(fileIndice, noAtual, rrnAtual, pos + 1, nroNos);
             }
         }
-    } else { // A chave não foi encontrada no nó atual, continua a busca na subárvore adequada
+    } else { // A chave não foi encontrada no nó atual
         if (noAtual->P[0] == -1) {
             free(noAtual);
             return CHAVE_NAO_ENCONTRADA; 
@@ -179,7 +179,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
             return CHAVE_NAO_ENCONTRADA;
         }
 
-        // Após a chamada recursiva, verifica se houve underflow pendente na subárvore e trata adequadamente para garantir as propriedades da Árvore-B
+        // Após a chamada recursiva, verifica se houve underflow pendente
         if (statusSub == UNDERFLOW_PENDENTE) {
             tratarUnderflow(fileIndice, noAtual, rrnAtual, pos, nroNos);
         }
@@ -192,7 +192,7 @@ int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
     int chavesAtuais = noAtual->nroChaves;
     free(noAtual);
 
-    // Verificação de underflow, em que caso o número de chaves do nó atual ficou abaixo do mínimo permitido, deve ser resolvido pela recursão de tratamento de underflow
+    // Verificação de underflow
     if (chavesAtuais < MIN_CHAVES) {
         return UNDERFLOW_PENDENTE;
     }
@@ -225,17 +225,17 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         lerNo(fileIndice, irmDir);
     }
 
-    // Estrutura de decisão para tratamento de underflow (1-4):
+    // Estrutura de decisão para tratamento do underflow (1-4):
     // 1: Empréstimo na direita, se o irmão direito tiver chaves suficientes para emprestar
     if (irmDir != NULL && irmDir->nroChaves > MIN_CHAVES) {
         int chavesTotal = 1 + irmDir->nroChaves;
-        int chavesEsq = chavesTotal / 2; // Garante a regra: "nó mais à esquerda deverá conter uma chave a mais"
+        int chavesEsq = chavesTotal / 2; // nó mais à esquerda deverá conter uma chave a mais
         int chavesDir = chavesTotal - chavesEsq - 1;
 
         int bufC[4], bufPr[4], bufP[5]; // buffers temporários para reorganizar as chaves e ponteiros durante o empréstimo
         bufC[0] = pai->C[indicePonteiroFilho]; bufPr[0] = pai->Pr[indicePonteiroFilho]; bufP[0] = atual->P[0];
 
-        // Preenche os buffers com as chaves e ponteiros do irmão direito, deslocando-os para a direita para abrir espaço para a chave promovida do pai
+        // Preenche os buffers com as chaves e ponteiros do irmão direito
         for(int i = 0; i < irmDir->nroChaves; i++) {
             bufC[i+1] = irmDir->C[i]; 
             bufPr[i+1] = irmDir->Pr[i]; 
@@ -244,7 +244,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
 
         bufP[irmDir->nroChaves + 1] = irmDir->P[irmDir->nroChaves];
 
-        // Reorganiza o nó atual (em underflow), o irmão direito e o pai de acordo com a redistribuição das chaves
+        // Reorganiza o nó atual
         atual->nroChaves = chavesEsq;
         for(int i = 0; i < chavesEsq; i++) { 
             atual->C[i] = bufC[i]; 
@@ -263,7 +263,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
             irmDir->P[i] = bufP[chavesEsq + 1 + i];
         }
     
-        // O ponteiro mais à direita do irmão direito é atualizado para o que estava originalmente no irmão direito, deslocado para a direita
+        // O ponteiro mais à direita do irmão direito é atualizado
         irmDir->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
         for(int i = chavesDir; i < 3; i++) { 
             irmDir->C[i] = -1; 
@@ -302,7 +302,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         bufC[irmEsq->nroChaves] = pai->C[indicePonteiroFilho - 1]; bufPr[irmEsq->nroChaves] = pai->Pr[indicePonteiroFilho - 1];
         bufP[irmEsq->nroChaves + 1] = atual->P[0];
 
-        // Reorganiza o irmão esquerdo, o nó em underflow e o pai de acordo com a redistribuição das chaves
+        // Reorganização das chaves
         irmEsq->nroChaves = chavesEsq;
         for(int i = 0; i < chavesEsq; i++) { 
             irmEsq->C[i] = bufC[i]; 
@@ -310,7 +310,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
             irmEsq->P[i] = bufP[i]; 
         }
 
-        // O ponteiro mais à direita do irmão esquerdo é atualizado para o que estava originalmente no irmão esquerdo, deslocado para a direita
+        // Atualização de ponteiros do irmão esquerdo após o empréstimo
         irmEsq->P[chavesEsq] = bufP[chavesEsq];
         for(int i = chavesEsq; i < 3; i++) { 
             irmEsq->C[i] = -1; 
@@ -320,7 +320,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
 
         pai->C[indicePonteiroFilho - 1] = bufC[chavesEsq]; pai->Pr[indicePonteiroFilho - 1] = bufPr[chavesEsq];
 
-        // O nó em underflow recebe as chaves restantes após a chave promovida para o pai
+        // O nó em underflow recebe as chaves restantes
         atual->nroChaves = chavesDir;
         for(int i = 0; i < chavesDir; i++) {
             atual->C[i] = bufC[chavesEsq + 1 + i]; 
@@ -329,7 +329,6 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         }
         atual->P[chavesDir] = bufP[chavesEsq + 1 + chavesDir];
 
-        // O ponteiro mais à direita do nó em underflow é atualizado para o que estava originalmente no irmão esquerdo, deslocado para a direita
         fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
         fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET); escreverNo(fileIndice, atual);
         fseek(fileIndice, BTREE_NO_INICIO(rrnIrmEsq), SEEK_SET); escreverNo(fileIndice, irmEsq);
@@ -341,11 +340,11 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         return;
     }
 
-    // 3: Merge na esquerda, pois o enunciado do trabalho 2 exige tentar à esquerda primeiro na concatenação
+    // 3: Merge na esquerda
     if (irmEsq != NULL)
         fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1, nroNos);
 
-    // 4: Merge na direita, se não for possível na esquerda
+    // 4: Merge na direita
     else if (irmDir != NULL)
         fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho, nroNos);
     
@@ -360,7 +359,7 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     esq->Pr[esq->nroChaves] = pai->Pr[indiceChavePai];
     esq->nroChaves++;
 
-    // Anexa as chaves do nó da direita à direita do nó da esquerda, mantendo a ordem original
+    // ordem original mantida durante a anexação das chaves
     for (int i = 0; i < dir->nroChaves; i++) {
         esq->C[esq->nroChaves + i] = dir->C[i];
         esq->Pr[esq->nroChaves + i] = dir->Pr[i];
@@ -369,24 +368,24 @@ void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrn
     esq->P[esq->nroChaves + dir->nroChaves] = dir->P[dir->nroChaves];
     esq->nroChaves += dir->nroChaves;
 
-    // Após o merge, a chave que separava os dois nós no pai é removida, e os ponteiros são ajustados para fechar o espaço deixado pelo nó da direita que foi fundido
+    // Após o merge, a chave que separava os dois nós no pai é removida, e os ponteiros são ajustados
     for (int i = indiceChavePai; i < pai->nroChaves - 1; i++) {
         pai->C[i] = pai->C[i+1];
         pai->Pr[i] = pai->Pr[i+1];
         pai->P[i+1] = pai->P[i+2];
     }
 
-    // O número de chaves do pai é decrementado, e os campos restantes são limpos para manter a consistência dos dados
+    // O número de chaves do pai é decrementado, e os campos restantes são limpos
     pai->nroChaves--;
     pai->C[pai->nroChaves] = -1;
     pai->Pr[pai->nroChaves] = -1;
     pai->P[pai->nroChaves + 1] = -1;
 
-    // Escreve as alterações de volta no arquivo para o pai e o nó resultante do merge (nó da esquerda)
+    // Escreve as alterações de volta no arquivo para o pai e o nó esquerdo resultante
     fseek(fileIndice, BTREE_NO_INICIO(rrnEsq), SEEK_SET); escreverNo(fileIndice, esq);
     fseek(fileIndice, BTREE_NO_INICIO(rrnPai), SEEK_SET); escreverNo(fileIndice, pai);
     
-    apagarNo(fileIndice, rrnDir, nroNos); // O nó da direita é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto
+    apagarNo(fileIndice, rrnDir, nroNos); // O nó da direita é logicamente apagado
 }
 
 bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares, int *nroNos) {
@@ -395,7 +394,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
     char statusDados, statusIndice;
     int topoDados;
 
-    // Dado o status na main, apenas realiza a leitura do topo o qual será usado para a lógica de remoção
+    // Pelo status na main, apenas realiza a leitura do topo o qual será usado
     fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
     if (fread(&topoDados, sizeof(int), 1, fileDados) != 1) return false;
 
@@ -425,7 +424,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
                     fwrite(&flag, sizeof(char), 1, fileDados); 
                     fwrite(&topoDados, sizeof(int), 1, fileDados);
                     
-                    // Atualiza o topo da lista de removidos no arquivo de dados para apontar para o registro recém-removido, que agora é o primeiro da lista
+                    // Atualiza o topo da lista de removidos no arquivo de dados
                     topoDados = rrnAlvo;
                     fseek(fileDados, 1, SEEK_SET); 
                     fwrite(&topoDados, sizeof(int), 1, fileDados);
@@ -444,7 +443,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
 
             long inicioRegistro = (long)TAM_CABECALHO + (long)rrn * (long)TAM_REG;
             
-            // Lê a chave (codEstacao) da estrutura do registro antes de marcar como removido e pula caso flag removido (1 byte) + proxRRN (4 bytes)
+            // Lê a chave (codEstacao) da estrutura do registro antes de marcar como removido
             fseek(fileDados, inicioRegistro + DADOS_OFF_PROXRRN, SEEK_SET); 
             int chaveParaRemover;
             if (fread(&chaveParaRemover, sizeof(int), 1, fileDados) != 1) { ok = false; break; }
@@ -471,7 +470,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
                 break;
             }
         }
-        if (ok) { // Após a remoção lógica de todos os registros que batem com os filtros, atualiza o topo da lista de removidos no arquivo de dados para apontar para o primeiro registro logicamente removido encontrado durante o processo
+        if (ok) { // Após a remoção lógica de todos os registros que batem com os filtros, atualiza o topo da lista de removidos
             fseek(fileDados, DADOS_OFF_TOPO, SEEK_SET);
             fwrite(&topoDados, sizeof(int), 1, fileDados);
         }

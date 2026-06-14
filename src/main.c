@@ -715,7 +715,7 @@ int main(){
                 break;
             }
             
-            // Processo de marcação dos arquivos como inconsistentes durante as operações de remoção indexada, para garantir que, em caso de falha, os arquivos não sejam considerados consistentes
+            // Processo de marcação dos arquivos como inconsistentes durante as operações
             char statusInconsistente = '0';
             fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
             fwrite(&statusInconsistente, sizeof(char), 1, fileDados);
@@ -735,7 +735,7 @@ int main(){
             CampoValor *paresDeleteIdx = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             ok = true;
 
-            // Loop das operações de remoção indexada, em que cada operação pode ter um número diferente de pares campo-valor, e a memória alocada para os pares é liberada a cada iteração para evitar acúmulo
+            // Loop das operações
             for (int i = 0; i < nRemocoesIdx; i++) {
                 int mPares = 0;
                 scanf("%d", &mPares);
@@ -754,7 +754,7 @@ int main(){
             fseek(fileIndice, BTREE_OFF_NRONOS, SEEK_SET);
             fwrite(&nroNosRemocao, sizeof(int), 1, fileIndice);
 
-            // Processo de "limpeza" dos arquivos (marcação de consistência)
+            // marcação de consistência
             if (ok) {
                 char statusConsistente = '1';
                 fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);

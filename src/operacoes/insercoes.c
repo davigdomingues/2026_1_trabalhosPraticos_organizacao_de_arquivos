@@ -223,7 +223,7 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
 }
 
 bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores, int *nroNos) {
-    // Se o campo de código da estação estiver presente nos valores a serem inseridos e o arquivo de índice existir, verifica se já existe um registro com o mesmo código de estação usando o índice
+    // Verifica se já existe um registro com o mesmo código de estação usando o índice
     if(*valores[CAMPO_COD_ESTACAO].valor && fileIndice != NULL){
         CampoValor *pares[8] = {NULL};
         CampoValor *apenasCodEstacao = (CampoValor*) malloc(sizeof(CampoValor));
@@ -231,7 +231,7 @@ bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores
         apenasCodEstacao->valor = valores[CAMPO_COD_ESTACAO].valor;
         pares[0] = apenasCodEstacao;
 
-        // Se a busca retornar um resultado, significa que já existe um registro com o mesmo código de estação, e a inserção deve ser abortada para evitar duplicidade
+        // Se a busca retornar um resultado com o mesmo código de estação, operação deve ser parada (duplicidade)
         int res = selectWhereIndexado(fileDados, fileIndice, pares, 1, false);
         if(res > 0){
             free(apenasCodEstacao);
@@ -268,7 +268,7 @@ bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores
         if (TAM_LIVRE_REG(reg.tamNomeEstacao, reg.tamNomeLinha) < 0) ok = false;
 
         if (topo != -1) {
-            // Reaproveita um registro removido.
+            // Reaproveita um registro removido
             long off = (long)TAM_CABECALHO + (long)topo * (long)TAM_REG;
             ponteiroDados = off;
             rrnNovoReg = off;
