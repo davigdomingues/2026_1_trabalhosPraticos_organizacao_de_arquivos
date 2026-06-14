@@ -525,9 +525,16 @@ int main(){
             }
 
             arquivoIndice = lerNomeArquivo();
+            int conversao = atoi(arquivoIndice);
             if (!arquivoIndice){
                 printf("Falha no processamento do arquivo.\n");
                 break;
+            } 
+            //se o que era pra ser o nome do arquivo de índice
+            //for um número
+            else if(conversao > 0){
+                //então o arquivo de índice não foi especificado
+                arquivoIndice = NULL;
             }
 
             fileDados = fopen(arquivoDados, "rb");
@@ -536,12 +543,18 @@ int main(){
                 break;
             }
 
+            //se o arquivo de índice foi especificado
             if(arquivoIndice != NULL){
+                //abre o arquivo de índice
                 fileIndice = fopen(arquivoIndice, "rb");
+                //lê o número de buscas
+                nBuscas = 0;
+                scanf("%d", &nBuscas);
+            } else {
+                //se o arquivo de índice não foi especificado
+                //"conversao" tem o número de buscas
+                nBuscas = conversao;
             }
-
-            nBuscas = 0;
-            scanf("%d", &nBuscas);
 
             pares = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
             for (int i = 0; i < nBuscas; i++) {

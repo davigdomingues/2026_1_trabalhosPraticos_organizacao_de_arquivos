@@ -1,5 +1,4 @@
 #include "../../headers/operacoes/buscas.h"
-#include "../../headers/operacoes/insercoes.h"
 #include "../../headers/dados/registro.h"
 #include "../../headers/dados/cabecalho.h"
 #include "../../headers/utils.h"
