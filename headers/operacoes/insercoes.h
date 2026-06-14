@@ -11,29 +11,81 @@
 #define SEM_PROMOCAO 0
 #define ERRO_DE_INSERCAO -1
 
-int insertIndice(FILE *fileIndice, int chave, int ponteiroDados, int *nroNovosNos);
-int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, ElementoIndice *elemASerPromovido, int *nroNos);
+/**
+ * @brief insere uma nova chave e ponteiro pro arquivo de dados na árvore B
+ * 
+ * @param fileIndice arquivo de índice
+ * @param chave chave a ser inserida
+ * @param ponteiroDados ponteiro pro arquivo de dados da chave a ser inserida
+ * @param[in,out] nroNos número atual de nós na árvore B 
+ * @return int indica sucesso da operação 
+ */
+int insertIndice(FILE *fileIndice, int chave, int ponteiroDados, int *nroNos);
+
+/**
+ * @brief insere recursivamente uma chave (e ponteiro pro arquivo de dados) na subárvore indicada
+ * 
+ * @param fileIndice arquivo de índice
+ * @param chave chave a ser inserida
+ * @param ponteiroDados ponteiro pro arquivo de dados da chave a ser inserida
+ * @param rrnNoAtual RRN do nó que, na etapa atual da recursão, a chave vai tentar ser inserida
+ * @param[out] promoPraCima elemento a ser promovido (caso ocorra um split)
+ * @param[in,out] nroNos número atual de nós na árvore B 
+ * @return int 1 indica que ocorreu uma promoção. 0 indica que não ocorreu uma promoção. -1 indica que ocorreu um erro de inserção
+ */
+int insertIndiceRec(FILE *fileIndice, int chave, int ponteiroDados, int rrnNoAtual, ElementoIndice *promoPraCima, int *nroNos);
+
+/**
+ * @brief distribui o mais uniforme possível 4 elementos entre dois nós e uma promoção
+ * 
+ * @param fileIndice arquivo de índice
+ * @param no nó original 
+ * @param novoNo nó que acabou de ser criado
+ * @param rrnNovoNo RRN do nó que acabou de ser criado
+ * @param overflowElem elemento que causou o overflow do nó original
+ * @param[out] promoPraCima elemento a ser promovido
+ */
 void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima);
-bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
+
+/**
+ * @brief insere um elemento em nó com espaço sobrando
+ * 
+ * @param no nó a recever o elemento
+ * @param elem elemento a ser inserido
+ * @return true elemento foi inserido
+ * @return false elemento não foi inserido (não tinha espaço sobrando)
+ */
 bool insereOrdenado(No *no, ElementoIndice elem);
 
-/** @brief Dado um arquivo binário, insere um novo registro com os valores especificados.
+/**
+ * @brief cria uma nova raiz para árvore B
  * 
- * @param fileIndice ponteiro para o arquivo de índice
- * @param no ponteiro para o nó onde a inserção deve ocorrer
- * @param overflowElem elemento que causou o overflow e deve ser inserido
- * @param elemASerPromovido elemento que deve ser promovido para o nó pai em caso de overflow
- * @return No* ponteiro para o novo nó criado em caso de split, ou NULL caso contrário
+ * @param fileIndice arquivo de índice
+ * @param rrnRaizAtual RRN da raiz atual
+ * @param promoDeBaixo elemento que vai ser promovido a raiz
+ * @param[in,out] nroNos número de nós atual da árvore B
  */
-No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *elemASerPromovido);
+void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBaixo, int *nroNos);
 
-/** @brief Dado um arquivo binário, insere um novo registro com os valores especificados.
- * 
- * @param arquivoEntrada caminho para o arquivo binário de entrada
+/** 
+ * @brief faz o split de um nó com overflow na árvore B, criando um novo nó e indicando o elemento a ser promovido
+ * @param fileIndice arquivo de índice
+ * @param no nó que sofreu overflow
+ * @param overflowElem elemento que causou o overflow
+ * @param[out] promoPraCima elemento que vai ser promovido para o nó pai
+ * @return No* ponteiro para o novo nó criado a partir do split
+ */
+No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *promoPraCima);
+
+/** 
+ * @brief insere um novo registro no arquivo de dados e atualiza o arquivo de índice da árvore B.
+ * @param fileDados arquivo de dados
+ * @param fileIndice arquivo de índice
  * @param valores array de campos e valores que especificam os dados do novo registro
  * @param mValores tamanho do array de valores
+ * @param[in,out] nroNos número atual de nós na árvore B (pode ser incrementado caso ocorra split)
  * @return true registro inserido com sucesso
- * @return false falha no processamento
+ * @return false falha no processamento ou na inserção
  */
 bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores, int *nroNos);
 

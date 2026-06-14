@@ -9,6 +9,8 @@
 #include <stdlib.h>
 
 void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, ElementoIndice overflowElem, ElementoIndice *promoPraCima){
+    //array que inclui os 4 elementos
+    //3 do nó original e 1 de overflow
     ElementoIndice elems[4];
 
     elems[0] = (ElementoIndice){no->C[0], no->Pr[0], no->P[1]};
@@ -16,43 +18,58 @@ void distribuirUniforme(FILE *fileIndice, No *no, No *novoNo, int rrnNovoNo, Ele
     elems[2] = (ElementoIndice){no->C[2], no->Pr[2], no->P[3]};
     elems[3] = overflowElem;
 
+    //não é alterado, porque essa subárvore
+    //à esquerda é, garantidamente, menor
+    //do que todas as chaves desse nó
     int ponteiroMaisEsquerda = no->P[0];
 
+    //como o array já está quase inteiro ordenado,
+    //com exceção da chave nova, o insertionSort
+    //é a melhor escolha
     insertionSort(elems, 4);
 
+    //os dois menores elementos ficam nesse nó
     no->C[0] = elems[0].chave;
     no->Pr[0] = elems[0].ptrDados;
     no->P[1] = elems[0].filhoDir;
-
     no->C[1] = elems[1].chave;
     no->Pr[1] = elems[1].ptrDados;
     no->P[2] = elems[1].filhoDir;
 
+    //um espaço fica vago nesse nó
     no->C[2] = -1;
     no->Pr[2] = -1;
     no->P[3] = -1;
-    no->P[0] = ponteiroMaisEsquerda;
+    no->P[0] = ponteiroMaisEsquerda; //o ponteiro à esquerda é restaurado
     no->nroChaves = 2;
 
+    //dentre as duas maiores chaves, a menor
+    //é promovida
     promoPraCima->chave = elems[2].chave;
     promoPraCima->ptrDados = elems[2].ptrDados;
     promoPraCima->filhoDir = rrnNovoNo;
 
+    //a maior chave fica no novo nó
+    //que é o filho à direita do nó promovido
     novoNo->C[0] = elems[3].chave;
     novoNo->Pr[0]= elems[3].ptrDados;
     novoNo->P[0] = elems[2].filhoDir;
     novoNo->P[1] = elems[3].filhoDir;
 
+    //limpeza
     novoNo->C[1] = -1; novoNo->C[2]  = -1;
     novoNo->Pr[1] = -1; novoNo->Pr[2] = -1;
     novoNo->P[2] = -1; novoNo->P[3]  = -1;
     
     novoNo->nroChaves = 1;
+    //o novoNo tem o mesmo tipo do nó mais
+    //antigo, porque eles são criados no mesmo nível
     novoNo->tipoNo = no->tipoNo;
 }
 
 
 bool insereOrdenado(No *no, ElementoIndice elem){
+    //se não tiver espaço no nó, não permite a inserção
     if(no->nroChaves >= NRO_MAX_CHAVES) return false;
 
     int i = no->nroChaves - 1;
@@ -79,16 +96,17 @@ No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice 
     int rrnNovoNo;
     No *novoNo = criarNo(fileIndice, &rrnNovoNo);
 
-    // Se a página que estourou era a RAIZ (0), ela perde a "coroa" e vira um nó intermediário, e o novo nó criado também é intermediário
+    //se o nó que sofreu split era raiz, houve a criação de uma nova raiz
+    //e como ela é filha da nova raiz, seu tipo passa a ser intermediário
     if (no->tipoNo == NO_RAIZ) {
         no->tipoNo = NO_INTERMEDIARIO;
-        novoNo->tipoNo = NO_INTERMEDIARIO;
     } else {
-        // Se era Folha (-1) ou já era intermediário (1), apenas copia
+        //caso contrário, só copia o tipo
         novoNo->tipoNo = no->tipoNo; 
     }
 
-    // distribui os elementos de forma uniforme entre o nó que estourou e o novo nó criado, e define o elemento a ser promovido para o pai
+    //distribui os elementos da forma mais uniforme possível
+    //entre o nó que estourou e o novo nó criado, e define o elemento a ser promovido para o pai
     distribuirUniforme(fileIndice, no, novoNo, rrnNovoNo, overflowElem, promoPraCima);
     return novoNo;
 }
@@ -97,6 +115,7 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
     int rrnNovaRaiz;
     No *novaRaiz = criarNo(fileIndice, &rrnNovaRaiz);
 
+    //cria nova raiz e põe a raiz antiga como filha dela
     novaRaiz->nroChaves = 1;
     novaRaiz->C[0] = promoDeBaixo.chave;
     novaRaiz->Pr[0] = promoDeBaixo.ptrDados;
@@ -123,18 +142,21 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
 }
 
 int insertIndice(FILE *fileIndice, int chave, int ptrDados, int *nroNos){
+    //lê do cabeçalho, o rrn da raiz 
     int rrnRaiz;
     fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
     fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
     ElementoIndice promoDeBaixo;
     int res = insertIndiceRec(fileIndice, chave, ptrDados, rrnRaiz, &promoDeBaixo, nroNos);
+    //se houve uma promoção vinda da raiz, então precisa criar uma nova raiz
     if(res == PROMOCAO) criarNovaRaiz(fileIndice, rrnRaiz, promoDeBaixo, nroNos);
 
     return 1;
 }
 
-int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, ElementoIndice *promoPraCima, int *nroNovosNos){
+int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, ElementoIndice *promoPraCima, int *nroNos){
+    //chegou ao final da recursão
     if(rrnNoAtual == -1){
         promoPraCima->chave = chave;
         promoPraCima->ptrDados = ptrDados;
@@ -144,24 +166,28 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
     int inicioNo = BTREE_NO_INICIO(rrnNoAtual);
     fseek(fileIndice, inicioNo, SEEK_SET);
 
+    //lê o nó atual
     No *no = inicializarNo();
     lerNo(fileIndice, no);
 
     int subArvore;
     int dummy; //não vai ser utilizado
+    //busca pela chave nesse nó
     bool encontrou = encontrarChave(no, chave, &subArvore, &dummy);
+    //se encontrou, aborta a inserção
     if(encontrou) {
         free(no);
         return ERRO_DE_INSERCAO;
     }
 
     ElementoIndice promoDeBaixo;
-    int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo, nroNovosNos);
+    int res = insertIndiceRec(fileIndice, chave, ptrDados, subArvore, &promoDeBaixo, nroNos);
 
     if(res == SEM_PROMOCAO || res == ERRO_DE_INSERCAO) {
         free(no);
         return res;
     }
+    //há espaço para inserção no nó atual
     else if (no->nroChaves < NRO_MAX_CHAVES){
         insereOrdenado(no, promoDeBaixo);
 
@@ -171,17 +197,21 @@ int insertIndiceRec(FILE *fileIndice, int chave, int ptrDados, int rrnNoAtual, E
         free(no);
         return SEM_PROMOCAO;
     } else {
-
+        //não há espaço para inserção no nó atual
         No *novoNo = split(fileIndice, no, promoDeBaixo, promoPraCima);
 
+        //escreve o nó atual no arquivo
         fseek(fileIndice, inicioNo, SEEK_SET);
         escreverNo(fileIndice, no);
 
+        //escreve o novo nó no arquivo
         int inicioNovoNo = BTREE_NO_INICIO(promoPraCima->filhoDir);
         fseek(fileIndice, inicioNovoNo, SEEK_SET);
         escreverNo(fileIndice, novoNo);
 
-        (*nroNovosNos)++;
+        //incrementa em memória o número de nós
+        //pra posteriormente escrever no cabeçalho
+        (*nroNos)++;
         
         free(no);
         free(novoNo);

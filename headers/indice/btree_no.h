@@ -22,6 +22,10 @@ typedef struct No {
     char removido;
 } No;
 
+/**
+ * @brief Agrupa os informações referentes a uma chave para faciltar a transferência de dados
+ * 
+ */
 typedef struct {
     int chave;
     int ptrDados;

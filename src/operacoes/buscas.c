@@ -152,10 +152,12 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
 
 
 bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados){
+    //pra fins de ordenação, as chaves que não existem tem peso infinito
     int C1 = no->C[0] != -1 ? no->C[0] : INT_MAX;
     int C2 = no->C[1] != -1 ? no->C[1] : INT_MAX;
     int C3 = no->C[2] != -1 ? no->C[2] : INT_MAX;
 
+    //encontra ou a chave ou a subárvore em que ela deve se encontrar
     if(chave == C2){
         *ponteiroDados = no->Pr[1];
         return true;
@@ -335,6 +337,7 @@ int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares
 
 int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print){
     int chave = atoi(pares[CAMPO_COD_ESTACAO]->valor);
+    //inicia a busca pelo nó raiz
     int rrnRaiz;
     fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
     fread(&rrnRaiz, sizeof(int), 1, fileIndice);
@@ -366,6 +369,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
         pares[CAMPO_COD_ESTACAO] = NULL; //retira codEstacao dos criterios de busca
         Registro *reg = (Registro*) malloc(sizeof(Registro));
         bool dummy; //não vai ser utilizado
+        //confere se o registro encontrado cumpre o restante dos critérios de busca
         int numMatches = confereCriteriosBusca(fileDados, reg, pares, &dummy);
 
         //numFiltros-1 porque o codEstacao foi retirado dos critérios de busca
@@ -393,6 +397,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
 }
 
 bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados){
+    //final da recursão
     if(rrnNoAtual == -1) return false;
 
     int inicioNo = BTREE_NO_INICIO(rrnNoAtual);
