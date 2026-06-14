@@ -54,11 +54,12 @@ bool deleteWhere(FILE *fileDados, CampoValor *pares, int mPares) {
 
 bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {
     int rrnRaiz;
-    fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
-    fread(&rrnRaiz, sizeof(int), 1, fileIndice);
+    fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); // lê o RRN da raiz da Árvore-B a partir do cabeçalho do arquivo de índice
+    fread(&rrnRaiz, sizeof(int), 1, fileIndice); // se o RRN da raiz for -1, significa que a árvore está vazia e a chave não pode ser encontrada para remoção, retornando false imediatamente
 
     if (rrnRaiz == -1) return false;
 
+    // chama a função recursiva de remoção, que retorna um status indicando se a chave foi encontrada e removida ou não
     int status = removerRecursivo(fileIndice, rrnRaiz, chave, nroNos);
     
     if (status == CHAVE_NAO_ENCONTRADA) {
@@ -75,11 +76,13 @@ bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {
         if (raiz->P[0] != -1) {
             int novaRaiz = raiz->P[0]; 
             
+            // atualiza o RRN da raiz no cabeçalho do arquivo de índice para apontar para a nova raiz, promovendo essa subárvore para ser a nova raiz da Árvore-B
             fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET);
             fwrite(&novaRaiz, sizeof(int), 1, fileIndice);
 
             apagarNo(fileIndice, rrnRaiz, nroNos); // O nó antigo da raiz é logicamente apagado, mas seu espaço não é reutilizado para novas inserções, seguindo a política de alocação de nós do projeto.
             
+            // após atualizar o RRN da nova raiz no cabeçalho, é necessário garantir que o tipo do nó seja atualizado para NO_RAIZ
             No *nRaiz = inicializarNo();
             fseek(fileIndice, BTREE_NO_INICIO(novaRaiz), SEEK_SET);
             lerNo(fileIndice, nRaiz);
@@ -87,6 +90,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {
             // Força a nova raiz a ter a flag 0, independentemente de ser folha ou não
             nRaiz->tipoNo = NO_RAIZ;
             
+            // escreve a nova raiz de volta no arquivo para garantir que o tipo atualizado seja persistido, mantendo a consistência da estrutura da Árvore-B 
             fseek(fileIndice, BTREE_NO_INICIO(novaRaiz), SEEK_SET);
             escreverNo(fileIndice, nRaiz);
             free(nRaiz);
@@ -107,6 +111,7 @@ bool removerChaveIndice(FILE *fileIndice, int chave, int *nroNos) {
 int removerRecursivo(FILE *fileIndice, int rrnAtual, int chave, int *nroNos) {
     if (rrnAtual == -1) return CHAVE_NAO_ENCONTRADA;
 
+    // Carrega o nó atual para análise
     No *noAtual = inicializarNo();
     fseek(fileIndice, BTREE_NO_INICIO(rrnAtual), SEEK_SET);
     lerNo(fileIndice, noAtual);
@@ -220,8 +225,8 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         lerNo(fileIndice, irmDir);
     }
 
-    // Estrutura de decisão para tratamento de underflow:
-    // 1: Empréstimo na direita (Se o irmão direito tiver chaves suficientes para emprestar)
+    // Estrutura de decisão para tratamento de underflow (1-4):
+    // 1: Empréstimo na direita, se o irmão direito tiver chaves suficientes para emprestar
     if (irmDir != NULL && irmDir->nroChaves > MIN_CHAVES) {
         int chavesTotal = 1 + irmDir->nroChaves;
         int chavesEsq = chavesTotal / 2; // Garante a regra: "nó mais à esquerda deverá conter uma chave a mais"
@@ -279,7 +284,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         return;
     }
 
-    // 2: Empréstimo na esquerda (Se o irmão esquerdo tiver chaves suficientes para emprestar)
+    // 2: Empréstimo na esquerda, se o irmão esquerdo tiver chaves suficientes para emprestar
     if (irmEsq != NULL && irmEsq->nroChaves > MIN_CHAVES) {
         int chavesTotal = irmEsq->nroChaves + 1;
         int chavesEsq = chavesTotal / 2;
@@ -336,11 +341,11 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         return;
     }
 
-    // 3: Merge na esquerda (O Enunciado exige tentar Esquerda primeiro na Concatenação)
+    // 3: Merge na esquerda, pois o enunciado do trabalho 2 exige tentar à esquerda primeiro na concatenação
     if (irmEsq != NULL)
         fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1, nroNos);
 
-    // 4: Merge na direita (Se não for possível na esquerda)
+    // 4: Merge na direita, se não for possível na esquerda
     else if (irmDir != NULL)
         fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho, nroNos);
     

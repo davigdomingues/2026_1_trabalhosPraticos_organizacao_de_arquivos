@@ -89,7 +89,7 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
 
     int numMatches = 0;
 
-    fseek(fileDados, 4, SEEK_CUR); //pula os 4 bytes de proxRRN
+    fseek(fileDados, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
 
     fread(&reg->codEstacao, sizeof(int), 1, fileDados);
     if (porCampo[CAMPO_COD_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_ESTACAO]->valor, reg->codEstacao)){
