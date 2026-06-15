@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <limits.h>
 
-static void limparNo(No *no) {
+void limparNo(No *no) {
     // inicializa os campos do nó com valores padrão, indicando que estão vazios ou nulos
     no->removido = '0';
     no->proximo = -1;
