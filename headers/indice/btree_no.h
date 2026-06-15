@@ -4,7 +4,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#define TAM_NO 53 // 4 bytes para proximo + 4 para tipoNo + 4 para nroChaves + (3 chaves * 4) + (3 ponteiros de dados * 4) + (4 ponteiros de filhos * 4) + 1 para removido
+// 4 bytes para proximo + 4 para tipoNo + 4 para nroChaves + (3 chaves * 4) + (3 ponteiros de dados * 4) 
+// + (4 ponteiros de filhos * 4) + 1 para removido
+#define TAM_NO 53
+
 #define NO_FOLHA -1 // Valor para indicar que um nó é folha
 #define NO_RAIZ 0 // Valor para indicar que um nó é a raiz da árvore
 #define NO_INTERMEDIARIO 1 // Valor para indicar que um nó é intermediário
@@ -22,10 +25,6 @@ typedef struct No {
     char removido;
 } No;
 
-/**
- * @brief Agrupa os informações referentes a uma chave para faciltar a transferência de dados
- * 
- */
 typedef struct {
     int chave;
     int ptrDados;
@@ -33,23 +32,41 @@ typedef struct {
 } ElementoIndice;
 
 /**
- * @brief Inicializa um nó da Árvore-B, alocando memória e definindo valores padrão para seus campos
+ * @brief inicializa um nó da Árvore-B, alocando memória e definindo valores padrão para seus campos
+ * 
  * @return No* ponteiro para o nó inicializado
  */
 No *inicializarNo();
 
 /**
- * @brief Lê um nó da Árvore-B a partir do arquivo de índice, dado seu RRN, e preenche a estrutura de nó fornecida
+ * @brief lê um nó da Árvore-B a partir do arquivo de índice, dado seu RRN, e preenche a estrutura de nó fornecida
+ * 
  * @param fileIndice ponteiro para o arquivo de índice
  * @param no ponteiro para a estrutura de nó que será preenchida com os dados lidos do arquivo
  */
 void lerNo(FILE *fileIndice, No *no);
 
+/**
+ * @brief escreve um nó da Árvore-B no arquivo de índice, na posição correspondente ao seu RRN
+ * 
+ * @param file ponteiro para o arquivo de índice
+ * @param no ponteiro para a estrutura de nó que será escrita no arquivo
+ * @return bool indica sucesso ou falha da operação
+ */
 bool escreverNo(FILE *file, No *no);
+
+/**
+ * @brief cria um novo nó da Árvore-B, inicializando seus campos e atribuindo um RRN disponível
+ * 
+ * @param fileIndice ponteiro para o arquivo de índice
+ * @param novoRRN ponteiro para armazenar o RRN do novo nó criado
+ * @return No* ponteiro para o novo nó criado
+ */
 No *criarNo(FILE *fileIndice, int *novoRRN);
 
 /**
- * @brief Apaga um nó da Árvore-B, liberando sua memória e atualizando o contador de nós no cabeçalho do arquivo de índice
+ * @brief apaga um nó da Árvore-B, liberando sua memória e atualizando o contador de nós no cabeçalho do arquivo de índice
+ * 
  * @param fileIndice ponteiro para o arquivo de índice
  * @param rrnNoParaApagar RRN do nó que deve ser apagado
  * @param nroNos ponteiro para o contador de nós da Árvore-B, que será atualizado conforme nós são removidos

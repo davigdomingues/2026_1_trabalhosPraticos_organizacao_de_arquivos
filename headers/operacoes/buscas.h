@@ -6,17 +6,23 @@
 #include "../utils.h"
 #include "../dados/registro.h"
 
+/**
+ * @brief handler para a operação de busca, que processa os arquivos de dados e de índice
+ */
 void handleSelectAll();
 
 /**
- * @brief Dado um arquivo binário, imprime na tela todos os registros não logicamente removidos.
- * * @param file ponteiro para o arquivo binário de entrada aberto
+ * @brief dado um arquivo binário, imprime na tela todos os registros não logicamente removidos
+ * * 
+ * @param file ponteiro para o arquivo binário de entrada aberto
  */
 void selectAll(FILE *file);
 
 /**
- * @brief Dado um arquivo binário, imprime os registros que satisfazem os critérios de busca ou retorna o rrn do primeiro registro que os satisfizer.
- * * @param fileDados ponteiro para o arquivo de dados aberto em modo "rb"
+ * @brief dado um arquivo binário, imprime os registros que satisfazem os critérios de busca ou retorna o rrn do primeiro 
+ * registro que os satisfizer
+ * 
+ * @param fileDados ponteiro para o arquivo de dados aberto em modo "rb"
  * @param fileIndice ponteiro para o arquivo de índice aberto em modo "rb"
  * @param par ponteiro para a estrutura de campo e valor que especifica o critério de busca
  * @param mPares tamanho do array de pares (ou número de critérios)
@@ -27,12 +33,20 @@ void selectAll(FILE *file);
  */
 int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *par, int mPares, int rrnInicial, bool apenasPrimeiroRes, bool seek);
 
+/**
+ * @brief handler para a operação de busca, que manipula a leitura dos critérios especificados pela entrada
+ */
 void handleSelectAllWhere();
+
+/** 
+ * @brief handler para a operação de busca indexada, que opera o SELECT WHERE pela estrutura da árvore B
+ */
 void handleSelectWhereIndexado();
 
 /**
- * @brief Dado um arquivo binário, imprime na tela todos os registros não logicamente removidos que satisfazem os critérios de busca.
- * * @param fileDados ponteiro para o arquivo binário de dados de entrada
+ * @brief dado um arquivo binário, imprime na tela todos os registros não logicamente removidos que satisfazem os critérios de busca
+ * 
+ * @param fileDados ponteiro para o arquivo binário de dados de entrada
  * @param fileIndice ponteiro para o arquivo binário de índice de entrada
  * @param pares array de campos e valores que especificam os critérios de busca
  * @param mPares tamanho do array de pares
@@ -41,8 +55,9 @@ void handleSelectWhereIndexado();
 int selectAllWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares);
 
 /**
- * @brief compara o valor especificado em uma busca com o valor (int) de um registro.
- * * @param index indica, por meio do sinal, se a busca especifica um valor para esse campo
+ * @brief compara o valor especificado em uma busca com o valor (int) de um registro
+ * 
+ * @param index indica, por meio do sinal, se a busca especifica um valor para esse campo
  * @param valorQuery valor em string especificado na busca
  * @param valorReg valor do registro
  * @return true os valores são iguais
@@ -51,8 +66,9 @@ int selectAllWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPa
 bool verificarMatchInt(int index, char *valorQuery, int valorReg);
 
 /**
- * @brief compara o valor especificado em uma busca com o valor (string) de um registro.
- * * @param index indica, por meio do sinal, se a busca especifica um valor para esse campo
+ * @brief compara o valor especificado em uma busca com o valor (string) de um registro
+ * 
+ * @param index indica, por meio do sinal, se a busca especifica um valor para esse campo
  * @param valorQuery valor em string especificado na busca
  * @param valorReg valor do registro
  * @return true os valores são iguais
@@ -61,8 +77,9 @@ bool verificarMatchInt(int index, char *valorQuery, int valorReg);
 bool verificarMatchStr(int index, char *valorQuery, char *valorReg);
 
 /**
- * @brief confere os critérios de busca de um registro a partir de um vetor de pares campo-valor.
- * * @param fileDados arquivo binário de dados já posicionado no início do registro
+ * @brief confere os critérios de busca de um registro a partir de um vetor de pares campo-valor
+ * 
+ * @param fileDados arquivo binário de dados já posicionado no início do registro
  * @param reg registro a ser preenchido com os campos lidos
  * @param porCampo array de ponteiros para pares campo-valor, indexado por CampoRegistroId
  * @param[out] codEstacaoMatch flag que indica se um dos matches foi de codEstacao
@@ -72,7 +89,8 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
 
 /**
  * @brief executa uma busca indexada (caso um dos critérios de busca seja codEstacao) ou executa uma busca sequencial
- * * @param fileDados arquivo binário de dados
+ * 
+ * @param fileDados arquivo binário de dados
  * @param fileIndice arquivo binário de índice
  * @param pares array de exatamente 8 ponteiros para pares campo-valor que são os critérios de busca
  * @param numFiltros tamanho do array pares
@@ -83,7 +101,8 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
 
 /**
  * @brief busca recursivamente uma chave em uma árvore B
- * * @param fileIndice arquivo binário de índice
+ * 
+ * @param fileIndice arquivo binário de índice
  * @param chave chave a ser buscada
  * @param rrnNoAtual RRN do nó que, na etapa atual da recursão, a chave vai ser buscada
  * @param[out] rrnNoRes RRN do nó cuja chave foi encontrada
@@ -94,8 +113,10 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
 bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, int *ponteiroDados);
 
 /**
- * @brief busca uma chave em um nó de uma árvore B e, caso não seja encontrada, indica a subárvore em que a próxima busca deve ser feita
- * * @param no nó da árvore B em que a busca será feita
+ * @brief busca uma chave em um nó de uma árvore B e, caso não seja encontrada, indica a subárvore em que a próxima busca 
+ * deve ser feita
+ * 
+ * @param no nó da árvore B em que a busca será feita
  * @param chave chave a ser buscada
  * @param[out] subArvore subárvore em que a próxima busca deve ser feita
  * @param[out] ponteiroDados ponteiro de dados da chave encontrada
@@ -105,8 +126,10 @@ bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, 
 bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados);
 
 /**
- * @brief verifica se um registro corresponde a um par campo-valor de busca, considerando os campos nomeEstacao e nomeLinha para comparação de strings
- * * @param reg registro a ser verificado
+ * @brief verifica se um registro corresponde a um par campo-valor de busca, considerando os campos nomeEstacao e nomeLinha 
+ * para comparação de strings
+ * 
+ * @param reg registro a ser verificado
  * @param nomeEstacao nome da estação do registro, passado como parâmetro para comparação de strings
  * @param nomeLinha nome da linha do registro, passado como parâmetro para comparação de strings
  * @param par par campo-valor a ser comparado com o registro

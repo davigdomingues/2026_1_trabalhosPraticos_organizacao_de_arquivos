@@ -33,32 +33,29 @@ typedef struct Registro {
     char removido;
 } Registro;
 
-
 /**
- * @brief Inicializa um registro em memória estaticamente.
+ * @brief Inicializa um registro em memória estaticamente
  * 
  * @return Registro registro inicializado
  */
 Registro inicializarReg();
 
-
 /**
- * @brief Escreve um registro em um arquivo aberto, campo a campo.
+ * @brief Escreve um registro em um arquivo aberto, campo a campo
  * 
  * @param file arquivo aberto
  * @param reg registro a ser escrito
  */
 void escreverReg(FILE *file, Registro *reg);
 
-
 /**
- * @brief Imprime um registro na tela.
+ * @brief Imprime um registro na tela
  * 
  * @param reg registro a ser impresso
  */
 void printReg(Registro *reg);
 
-/** @brief Verifica se uma estação já existe em um arquivo.
+/** @brief Verifica se uma estação já existe em um arquivo
  * 
  * @param file arquivo aberto
  * @param nomeEstacao nome da estação a ser verificada

@@ -6,8 +6,15 @@
 #include "../utils.h"
 #include "../dados/registro.h"
 
+/**
+ * @brief handler que contém a lógica de criação dos índices da árvore-B associada, que referencia os registros das 
+ * estações de metrô/trem
+ */
 void handleCreateIndex();
 
+/**
+ * @brief handler que contém a lógica de criação do arquivo binário de dados, a partir de um arquivo CSV de entrada
+ */
 void handleCreate();
 
 /**

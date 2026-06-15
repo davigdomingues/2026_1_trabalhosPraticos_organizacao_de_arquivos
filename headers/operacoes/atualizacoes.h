@@ -8,7 +8,7 @@
 
 void handleUpdate();
 
-/** @brief Dado um arquivo binário, atualiza os registros que correspondem aos critérios de busca especificados.
+/** @brief dado um arquivo binário, atualiza os registros que correspondem aos critérios de busca especificados
  * 
  * @param fileDados ponteiro para o arquivo binário de entrada
  * @param paresBusca array de campos e valores que especificam os critérios de busca

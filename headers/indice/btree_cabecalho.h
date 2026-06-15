@@ -27,7 +27,26 @@ typedef struct CabecalhoIndice {
     char status;
 } CabecalhoIndice;
 
+/**
+ * @brief atualiza o status do arquivo de índice da Árvore-B, escrevendo o valor especificado no cabeçalho
+ * 
+ * @param fileIndice ponteiro para o arquivo de índice, já aberto em modo de escrita
+ * @param status valor do status a ser escrito no cabeçalho
+ * @return bool indica sucesso ou falha da operação
+ */
 bool atualizarStatusIndice(FILE *fileIndice, char status);
+
+/**
+ * @brief escreve o cabeçalho do arquivo de índice da Árvore-B e preenche a estrutura de cabecalhoIndice fornecida
+ * 
+ * @param fileIndice ponteiro para o arquivo de índice, já aberto em modo de leitura
+ * @param status ponteiro para armazenar o valor do status
+ * @param noRaiz ponteiro para armazenar o valor do noRaiz
+ * @param topo ponteiro para armazenar o valor do topo
+ * @param proxRRN ponteiro para armazenar o valor do proxRRN
+ * @param nroNos ponteiro para armazenar o valor do nroNos
+ * @return bool indica sucesso ou falha da operação
+ */
 bool escreverCabecalhoIndice(FILE *fileIndice, char status, int noRaiz, int topo, int proxRRN, int nroNos);
 
 #endif

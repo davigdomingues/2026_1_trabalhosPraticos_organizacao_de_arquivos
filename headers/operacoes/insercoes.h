@@ -68,7 +68,8 @@ bool insereOrdenado(No *no, ElementoIndice elem);
 void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBaixo, int *nroNos);
 
 /** 
- * @brief faz o split de um nó com overflow na árvore B, criando um novo nó e indicando o elemento a ser promovido
+ * @brief realiza o split de um nó com overflow na árvore B, criando um novo nó e indicando o elemento a ser promovido
+ * 
  * @param fileIndice arquivo de índice
  * @param no nó que sofreu overflow
  * @param overflowElem elemento que causou o overflow
@@ -77,13 +78,31 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
  */
 No *split(FILE *fileIndice, No *no, ElementoIndice overflowElem, ElementoIndice *promoPraCima);
 
+/**
+ * @brief auxiliar que calcular o número de estações únicas e o número de pares estação-valor para cada estação, a partir 
+ * do arquivo de dados
+ * 
+ * @param fileDados arquivo de dados
+ * @param[out] nroEstacoes número de estações únicas encontrado
+ * @param[out] nroParesEstacao número total de pares estação-valor encontrado
+ * @return true cálculo realizado com sucesso
+ * @return false falha no processamento
+ */
 bool calculaNroEstacoesUnicas(FILE *fileDados, int *nroEstacoes, int *nroParesEstacao);
 
+/**
+ * @brief handler para a operação de inserção, que lê os campos e valores do novo registro a ser inserido no arquivo de dados
+ */
 void handleInsert();
+
+/**
+ * @brief handler para a operação de inserção indexada, que lê os campos e valores do novo registro a ser inserido na árvore B
+ */
 void handleInsertIndexado();
 
 /** 
  * @brief insere um novo registro no arquivo de dados e atualiza o arquivo de índice da árvore B.
+ * 
  * @param fileDados arquivo de dados
  * @param fileIndice arquivo de índice
  * @param valores array de campos e valores que especificam os dados do novo registro

@@ -87,7 +87,8 @@ int encontrarIndexCampo(CampoValor *pares, int mPares, const char *campo);
  * 
  * @param pares array de pares a serem indexados
  * @param mPares tamanho do array de pares
- * @param out array de ponteiros para os pares encontrados, indexado por campo (posição fixa definida por CampoRegistroId), posições sem filtro ficam como NULL
+ * @param out array de ponteiros para os pares encontrados, indexado por campo (posição fixa definida por CampoRegistroId), 
+ * posições sem filtro ficam como NULL
  * @return int número de campos reconhecidos encontrados e indexados no array de saída
  */
 int popularParesPorCampo(CampoValor *pares, int mPares, CampoValor *out[NUM_CAMPOS_REGISTRO]);
