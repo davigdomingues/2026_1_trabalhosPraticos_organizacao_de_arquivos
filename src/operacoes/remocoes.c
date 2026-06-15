@@ -396,8 +396,7 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         lerNo(fileIndice, irmDir);
     }
 
-    // Estrutura de decisão para tratamento do underflow (1-4):
-    // 1: Empréstimo na direita, se o irmão direito tiver chaves suficientes para emprestar
+    // Empréstimo na direita, se o irmão direito tiver chaves suficientes para emprestar
     if (irmDir != NULL && irmDir->nroChaves > MIN_CHAVES) {
         int chavesTotal = 1 + irmDir->nroChaves;
         int chavesEsq = chavesTotal / 2; // nó mais à esquerda deverá conter uma chave a mais
@@ -455,20 +454,23 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         return;
     }
 
-    // 2: Empréstimo na esquerda, se o irmão esquerdo tiver chaves suficientes para emprestar
+    // Empréstimo na esquerda, se o irmão esquerdo tiver chaves suficientes para emprestar
     if (irmEsq != NULL && irmEsq->nroChaves > MIN_CHAVES) {
         int chavesTotal = irmEsq->nroChaves + 1;
         int chavesEsq = chavesTotal / 2;
         int chavesDir = chavesTotal - chavesEsq - 1;
 
         int bufC[4], bufPr[4], bufP[5];
-        for(int i = 0; i < irmEsq->nroChaves; i++) { // Preenche os buffers com as chaves e ponteiros do irmão esquerdo, mantendo a ordem original
+
+        // Preenche os buffers com as chaves e ponteiros do irmão esquerdo, mantendo a ordem original
+        for(int i = 0; i < irmEsq->nroChaves; i++) {
             bufC[i] = irmEsq->C[i]; 
             bufPr[i] = irmEsq->Pr[i]; 
             bufP[i] = irmEsq->P[i];
         }
 
-        // O ponteiro mais à direita do irmão esquerdo é movido para o nó em underflow, e a chave do pai que separa os dois irmãos é promovida para o nó em underflow
+        // O ponteiro mais à direita do irmão esquerdo é movido para o nó em underflow, e a chave do pai que separa os dois irmãos 
+        // é promovida para o nó em underflow
         bufP[irmEsq->nroChaves] = irmEsq->P[irmEsq->nroChaves];
         bufC[irmEsq->nroChaves] = pai->C[indicePonteiroFilho - 1]; bufPr[irmEsq->nroChaves] = pai->Pr[indicePonteiroFilho - 1];
         bufP[irmEsq->nroChaves + 1] = atual->P[0];
@@ -511,11 +513,11 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
         return;
     }
 
-    // 3: Merge na esquerda
+    // Merge na esquerda
     if (irmEsq != NULL)
         fazerMerge(fileIndice, irmEsq, atual, pai, rrnIrmEsq, rrnAtual, rrnPai, indicePonteiroFilho - 1, nroNos);
 
-    // 4: Merge na direita
+    // Merge na direita
     else if (irmDir != NULL)
         fazerMerge(fileIndice, atual, irmDir, pai, rrnAtual, rrnIrmDir, rrnPai, indicePonteiroFilho, nroNos);
     
@@ -525,7 +527,8 @@ void tratarUnderflow(FILE *fileIndice, No *pai, int rrnPai, int indicePonteiroFi
 }
 
 void fazerMerge(FILE *fileIndice, No *esq, No *dir, No *pai, int rrnEsq, int rrnDir, int rrnPai, int indiceChavePai, int *nroNos) {
-    // A chave do pai que separa os dois nós é movida para o nó da esquerda, e as chaves do nó da direita são anexadas à direita do nó da esquerda
+    // A chave do pai que separa os dois nós é movida para o nó da esquerda
+    // e as chaves do nó da direita são anexadas à direita do nó da esquerda
     esq->C[esq->nroChaves] = pai->C[indiceChavePai];
     esq->Pr[esq->nroChaves] = pai->Pr[indiceChavePai];
     esq->nroChaves++;
@@ -573,7 +576,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
     int idxCodEstacao = encontrarIndexCampo(pares, mPares, "codEstacao");
 
     if (idxCodEstacao != -1 && !valorEhNulo(pares[idxCodEstacao].valor)) {
-        // Busca O(log n) por índices da Árvore-B, seguida de validação completa dos filtros no registro encontrado
+        // Busca por índices da Árvore-B, seguida de validação completa dos filtros no registro encontrado
         int chaveBuscada = atoi(pares[idxCodEstacao].valor);
         int rrnRaiz; fseek(fileIndice, BTREE_OFF_NORAIZ, SEEK_SET); fread(&rrnRaiz, sizeof(int), 1, fileIndice);
 
@@ -605,7 +608,7 @@ bool deleteWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares, i
             }
         }
     } else {
-        // Busca sequencial O(n), lendo diretamente no disco
+        // Busca sequencial, lendo diretamente no disco
         int rrn = -1;
         while (true) {
             // Passamos NULL para o índice, forçando o "full-scan" no selectWhere

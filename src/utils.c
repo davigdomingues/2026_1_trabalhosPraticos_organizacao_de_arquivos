@@ -124,7 +124,6 @@ int popularParesPorCampo(CampoValor *pares, int mPares, CampoValor *out[NUM_CAMP
     return preenchidos;
 }
 
-
 // aloca e seta uma string do Registro a partir de um valor de par campo-valor (trata NULO e libera string anterior quando necessário)
 static bool setRegistroString(char **dest, int *destTam, char *valor) {
     if (!dest || !destTam) return true;

@@ -47,6 +47,7 @@ void handleSelectAllWhere(){
         return;
     }
 
+    //leitura e execução das 'n' operações de busca
     int nBuscas = 0;
     scanf("%d", &nBuscas);
 
@@ -116,6 +117,7 @@ void handleSelectWhereIndexado(){
         nBuscas = conversao;
     }
 
+    // uso de variável auxiliar para ler os pares campo-valor das buscas
     pares = (CampoValor*) malloc(sizeof(CampoValor) * MAX_PARES);
     for (int i = 0; i < nBuscas; i++) {
         int mPares = 0;
@@ -130,6 +132,7 @@ void handleSelectWhereIndexado(){
     free(pares);
     free(arquivoDados);
     free(arquivoIndice);
+
     fclose(fileDados);
     if(fileIndice) fclose(fileIndice);
 }
@@ -213,6 +216,7 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
 
     fseek(fileDados, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
 
+    //lê os campos do registro e armazena na struct, conferindo os critérios de busca para cada campo lido
     fread(&reg->codEstacao, sizeof(int), 1, fileDados);
     if (porCampo[CAMPO_COD_ESTACAO] && verificarMatchInt(0, porCampo[CAMPO_COD_ESTACAO]->valor, reg->codEstacao)){
         *codEstacaoMatch = true;
@@ -221,6 +225,7 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
         *codEstacaoMatch = false;
     }
 
+    //lê o restante dos campos do registro, conferindo os critérios de busca para cada um deles
     fread(&reg->codLinha, sizeof(int), 1, fileDados);
     if (porCampo[CAMPO_COD_LINHA] && verificarMatchInt(0, porCampo[CAMPO_COD_LINHA]->valor, reg->codLinha)) numMatches++;
 
@@ -237,6 +242,7 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
     if (porCampo[CAMPO_COD_EST_INTEGRA] && verificarMatchInt(0, porCampo[CAMPO_COD_EST_INTEGRA]->valor, reg->codEstIntegra)) numMatches++;
 
     fread(&reg->tamNomeEstacao, sizeof(int), 1, fileDados);
+
     //lê o nomeEstacao, se não for um campo NULO
     if(reg->tamNomeEstacao != 0){
         char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
@@ -267,6 +273,8 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
         //se for NULO, só indica que é
         reg->nomeLinha = "";
     }
+
+    //conferência do critério de busca para nomeLinha, usando o valor lido do campo nomeLinha do registro
     if (porCampo[CAMPO_NOME_LINHA] && verificarMatchStr(0, porCampo[CAMPO_NOME_LINHA]->valor, reg->nomeLinha)) numMatches++;
 
     return numMatches;
@@ -279,11 +287,13 @@ bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados){
     int C2 = no->C[1] != -1 ? no->C[1] : INT_MAX;
     int C3 = no->C[2] != -1 ? no->C[2] : INT_MAX;
 
-    //encontra ou a chave ou a subárvore em que ela deve se encontrar
+    //encontra ou a chave ou a subárvore em que ela deve estar
     if(chave == C2){
         *ponteiroDados = no->Pr[1];
         return true;
     }
+
+    //se a chave for menor que C2, ela pode estar em C1 ou na subárvore entre C1 e C2, ou na subárvore à esquerda de C1
     else if(chave < C2){
         if(chave == C1){
             *ponteiroDados = no->Pr[0];
@@ -295,6 +305,8 @@ bool encontrarChave(No *no, int chave, int *subArvore, int *ponteiroDados){
             *subArvore = no->P[1];
         }
     }
+
+    //a chave está em C3 ou na subárvore entre C2 e C3, ou na subárvore à direita de C3
     else {
         if(chave == C3){
             *ponteiroDados = no->Pr[2];
@@ -342,6 +354,7 @@ void selectAll(FILE *file){
         fread(&reg->codLinhaIntegra, sizeof(int), 1, file);
         fread(&reg->codEstIntegra, sizeof(int), 1, file);
 
+        //lê o nomeEstacao, se não for um campo NULO
         fread(&reg->tamNomeEstacao, sizeof(int), 1, file);
         if(reg->tamNomeEstacao != 0){
             char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
@@ -351,6 +364,7 @@ void selectAll(FILE *file){
             reg->nomeEstacao = nomeEstacao;
         }
 
+        //lê o nomeLinha, se não for um campo NULO
         fread(&reg->tamNomeLinha, sizeof(int), 1, file);
         if(reg->tamNomeLinha != 0){
             char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha ) + 1); // +1 para o caractere nulo
@@ -366,6 +380,7 @@ void selectAll(FILE *file){
         }
         regLidos++;
 
+        //imprime o registro e pula o restante do espaço livre, se houver
         printReg(reg);
         int tamRestante = TAM_LIVRE_REG(reg->tamNomeEstacao, reg->tamNomeLinha);
         if(tamRestante != 0) fseek(file, tamRestante, SEEK_CUR); //pula os $
@@ -380,6 +395,7 @@ void selectAll(FILE *file){
 }
 
 int selectAllWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares){
+    //se o arquivo de índice foi passado, a busca é feita por ele, caso contrário, é feita uma varredura completa no arquivo de dados
     int res = selectWhere(fileDados, fileIndice, pares, mPares, 0, false, true);
     return res;
 }
@@ -476,6 +492,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
         return -1;
     }
     else {
+        // se encontrou o registro pelo índice, ponteiroRes tem o byte offset do registro no arquivo de dados
         fseek(fileDados, ponteiroRes, SEEK_SET);
 
         char removido;
@@ -523,13 +540,16 @@ bool buscaRecursiva(FILE *fileIndice, int chave, int rrnNoAtual, int *rrnNoRes, 
     if(rrnNoAtual == -1) return false;
 
     int inicioNo = BTREE_NO_INICIO(rrnNoAtual);
-    fseek(fileIndice, inicioNo, SEEK_SET);
+    fseek(fileIndice, inicioNo, SEEK_SET); //coloca o ponteiro do arquivo no início do nó atual
 
     No *no = inicializarNo();
     lerNo(fileIndice, no);
 
+    //encontra ou a chave ou a subárvore em que ela deve estar
     int subArvore;
     bool encontrou = encontrarChave(no, chave, &subArvore, ponteiroDados);
+
+    //se encontrou a chave, ponteiroDados tem o byte offset do registro no arquivo de dados
     if(!encontrou){
         bool res = buscaRecursiva(fileIndice, chave, subArvore, rrnNoRes, ponteiroDados);
         free(no);

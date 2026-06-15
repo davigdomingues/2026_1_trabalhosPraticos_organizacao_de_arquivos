@@ -73,4 +73,9 @@ No *criarNo(FILE *fileIndice, int *novoRRN);
  */
 void apagarNo(FILE *fileIndice, int rrnNoParaApagar, int *nroNos);
 
+/**
+ * @brief limpa os campos de um nó da Árvore-B, definindo valores padrão para suas chaves, ponteiros e status de remoção
+ */
+void limparNo(No *no);
+
 #endif

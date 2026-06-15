@@ -121,7 +121,7 @@ void criarNovaRaiz(FILE *fileIndice, int rrnRaizAtual, ElementoIndice promoDeBai
     novaRaiz->nroChaves = 1;
     novaRaiz->C[0] = promoDeBaixo.chave;
     novaRaiz->Pr[0] = promoDeBaixo.ptrDados;
-    novaRaiz->P[0] = rrnRaizAtual;          //filho a esquerda é a raiz antiga
+    novaRaiz->P[0] = rrnRaizAtual; //filho a esquerda é a raiz antiga
     novaRaiz->P[1] = promoDeBaixo.filhoDir; //filho a direita é o nó criado no split
     novaRaiz->tipoNo = NO_RAIZ;
 
@@ -341,6 +341,7 @@ void handleInsert(){
         return;
     }
 
+    // verifica se o arquivo está consistente para inserção
     char statusDadosInsert;
     fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
     fread(&statusDadosInsert, sizeof(char), 1, fileDados);
@@ -352,6 +353,7 @@ void handleInsert(){
         return;
     }
 
+    // marca o arquivo como inconsistente durante as operações de inserção
     char status = '0';
     fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
     fwrite(&status, sizeof(char), 1, fileDados);
@@ -390,8 +392,9 @@ void handleInsert(){
         if (ok && !insert(fileDados, NULL, valores, MAX_PARES, &dummy)) ok = false;
     }
 
+    // recalcula o número de estações e pares de estações únicas, para atualizar o cabeçalho do arquivo, e escreve os valores atualizados no cabeçalho
     calculaNroEstacoesUnicas(fileDados, &nroEstacoes, &nroParesEstacoes);
-    fseek(fileDados, 9, SEEK_SET);
+    fseek(fileDados, DADOS_OFF_NROESTACOES, SEEK_SET);
     fwrite(&nroEstacoes, sizeof(int), 1, fileDados);
     fwrite(&nroParesEstacoes, sizeof(int), 1, fileDados);
 
