@@ -9,6 +9,8 @@
 #include "../headers/operacoes/criacoes.h"
 #include "../headers/operacoes/remocoes.h"
 #include "../headers/operacoes/atualizacoes.h"
+#include "../headers/operacoes/juncoes.h"
+#include "../headers/operacoes/ordenacoes.h"
 #include <stdio.h>
 #include <stdbool.h>
 
