@@ -1,0 +1,7 @@
+8 estacoesRem.bin estacoesRemBTree.bin 6
+2 codEstacao 71 codLinhaIntegra NULO
+2 codEstacao 64 codLinha 4
+1 codEstacao 199
+3 codLinha 13 nomeLinha "Azul" codEstacao 199
+8 codEstacao 197 nomeEstacao "Tatuape" codLinha 13 nomeLinha "Jade" codProxEstacao 198 distProxEstacao 8850 codLinhaIntegra 11 codEstIntegra 168
+8 codEstacao 197 nomeEstacao "Tatuape" codLinha 13 nomeLinha "Jade" codProxEstacao 198 distProxEstacao 8850 codLinhaIntegra 11 codEstIntegra 167

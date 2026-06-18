@@ -1,0 +1,11 @@
+9 ordenado.bin ordenadoBTree.bin 10
+1000 "Tucuruvi" 1 "Azul" 2 992 NULO NULO
+1004 "Santana" 1 "Azul" 5 740 20 NULO
+1005 "Carandiru" 1 "Azul" 6 760 NULO 10
+1006 "Portuguesa-Tiete" 1 "Azul" 7 1245 NULO NULO
+1007 "Armenia" 1 "Azul" 8 691 NULO NULO
+1 "PET" 1 "Verde" 8 691 NULO 40
+0 "Santa Cruz" 1 "Azul" 19 1312 5 81
+1002 "Parada Inglesa" 1 "Azul" 3 1057 NULO NULO
+1003 "Jardim Sao Paulo" 1 "Azul" 4 1474 NULO NULO
+1007 "Praca da arvore" 1 "Azul" 20 896 NULO 40
