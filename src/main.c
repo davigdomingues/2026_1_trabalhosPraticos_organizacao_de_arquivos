@@ -47,6 +47,18 @@ int main(){
         case 10: // DELETE WHERE COM INDEXAÇÃO
             handleDeleteWhereIndexado();
             break;
+        case 11: // NESTED JOIN
+            handleNestedJoin();
+            break;
+        case 12: // INDEXED JOIN
+            handleIndexedJoin();
+            break;
+        case 13: // ORDER BY
+            handleOrderBy();
+            break;
+        case 14: // SORT-MERGE JOIN
+            handleSortMergeJoin();
+            break;
         default: // operação inválida
             return -1;
     }
