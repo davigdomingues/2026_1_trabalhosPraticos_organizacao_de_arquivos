@@ -59,6 +59,7 @@ void handleOrderBy() {
         return;
     }
 
+    // leitura dos dados do cabeçalho, que serão reutilizados no arquivo de saída
     int topo, proxRRN, nroEstacoes, nroPares;
     fread(&topo, sizeof(int), 1, fileDados);
     fread(&proxRRN, sizeof(int), 1, fileDados);
@@ -77,7 +78,7 @@ void handleOrderBy() {
 
     fseek(fileDados, TAM_CABECALHO, SEEK_SET);
 
-    int qtdValidos = 0;
+    int qtdValidos = 0; // contador de registros válidos lidos, que também indica a posição de inserção no vetor
     char removido;
 
     // extração em varredura que retira apenas registros válidos

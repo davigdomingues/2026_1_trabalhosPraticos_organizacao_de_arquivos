@@ -8,13 +8,14 @@
 
 /**
  * @brief handler que contém a lógica de execução da junção aninhada (nested join) entre os arquivos de dados das estações de metrô/trem
- * propositalmente estipulado para ter desempenho O(n^2)
+ * o desempenho geral é O(n*m), onde n e m são as quantidades de registros válidos nos arquivos de dados envolvidos na junção, mas 
+ * O(n²) para o pior caso
  */
 void handleNestedJoin();
 
 /**
  * @brief handler que contém a lógica de execução da junção indexada entre os arquivos de dados
- * propositalmente estipulado para ter desempenho O(n*log n)
+ * propositalmente estipulado para ter desempenho geral O(n*log n)
  */
 void handleIndexedJoin();
 
