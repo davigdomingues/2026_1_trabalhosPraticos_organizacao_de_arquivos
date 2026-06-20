@@ -29,42 +29,31 @@ int compararCodProxEstacao(const void *a, const void *b) { // mesma lógica de c
     return r1->codProxEstacao - r2->codProxEstacao;
 }
 
-void handleOrderBy() {
-    char *arquivoDados = lerNomeArquivo();
-    char *campoOrdenacao = lerNomeArquivo();
-    char *arquivoSaida = lerNomeArquivo();
-
-    if (!arquivoDados || !campoOrdenacao || !arquivoSaida) {
-        printf("Falha no processamento do arquivo.\n");
-        if (arquivoDados) free(arquivoDados);
-        if (campoOrdenacao) free(campoOrdenacao);
-        if (arquivoSaida) free(arquivoSaida);
-        return;
-    }
-
+Registro* ordenarNaMemoria(const char *arquivoDados, const char *campoOrdenacao, int *qtdValidos, int *nroEstacoesOut, int *nroParesOut) {
+    *qtdValidos = 0;
     FILE *fileDados = fopen(arquivoDados, "rb");
     if (!fileDados) {
         printf("Falha no processamento do arquivo.\n");
-        free(arquivoDados); free(campoOrdenacao); free(arquivoSaida);
-        return;
+        return NULL;
     }
 
-    // leitura segura do cabeçalho e verificação de consistência
     char status;
     fseek(fileDados, DADOS_OFF_STATUS, SEEK_SET);
     if (fread(&status, sizeof(char), 1, fileDados) != 1 || status != '1') {
         printf("Falha no processamento do arquivo.\n");
         fclose(fileDados);
-        free(arquivoDados); free(campoOrdenacao); free(arquivoSaida);
-        return;
+        return NULL;
     }
 
-    // leitura dos dados do cabeçalho, que serão reutilizados no arquivo de saída
     int topo, proxRRN, nroEstacoes, nroPares;
     fread(&topo, sizeof(int), 1, fileDados);
     fread(&proxRRN, sizeof(int), 1, fileDados);
     fread(&nroEstacoes, sizeof(int), 1, fileDados);
     fread(&nroPares, sizeof(int), 1, fileDados);
+
+    // saída de informações de contagem, caso os ponteiros de saída sejam fornecidos
+    if (nroEstacoesOut) *nroEstacoesOut = nroEstacoes;
+    if (nroParesOut) *nroParesOut = nroPares;
 
     // uso de vetor dinâmico com tamanho razoável inicial
     int capacidade = 100;
@@ -72,13 +61,10 @@ void handleOrderBy() {
     if (!vetor) {
         printf("Falha no processamento do arquivo.\n");
         fclose(fileDados);
-        free(arquivoDados); free(campoOrdenacao); free(arquivoSaida);
-        return;
+        return NULL;
     }
 
     fseek(fileDados, TAM_CABECALHO, SEEK_SET);
-
-    int qtdValidos = 0; // contador de registros válidos lidos, que também indica a posição de inserção no vetor
     char removido;
 
     // extração em varredura que retira apenas registros válidos
@@ -119,29 +105,53 @@ void handleOrderBy() {
         if (tamRestante > 0) fseek(fileDados, tamRestante, SEEK_CUR);
 
         // alocação dinâmica do vetor, que dobra de tamanho quando necessário
-        if (qtdValidos >= capacidade) {
+        if (*qtdValidos >= capacidade) {
             capacidade *= 2;
             Registro *temp = (Registro*) realloc(vetor, capacidade * sizeof(Registro));
             if (!temp) break;
             vetor = temp;
         }
 
-        vetor[qtdValidos++] = reg;
+        vetor[(*qtdValidos)++] = reg;
     }
     fclose(fileDados);
 
     // uso do qsort() para ordenação, com tratamento de campo inválido que tenta processar o que já foi lido
-    if (strcmp(campoOrdenacao, "codEstacao") == 0) qsort(vetor, qtdValidos, sizeof(Registro), compararCodEstacao);
-    
-    else if (strcmp(campoOrdenacao, "codProxEstacao") == 0 || strcmp(campoOrdenacao, "codProxEst") == 0) qsort(vetor, qtdValidos, sizeof(Registro), compararCodProxEstacao);
-    
+    if (strcmp(campoOrdenacao, "codEstacao") == 0) qsort(vetor, *qtdValidos, sizeof(Registro), compararCodEstacao);
+
+    else if (strcmp(campoOrdenacao, "codProxEstacao") == 0 || strcmp(campoOrdenacao, "codProxEst") == 0) qsort(vetor, *qtdValidos, sizeof(Registro), compararCodProxEstacao);
+
     else { // campo de ordenação inválido, necessidade de liberar memória
         printf("Falha no processamento do arquivo.\n");
-        for (int i = 0; i < qtdValidos; i++) {
+        for (int i = 0; i < *qtdValidos; i++) {
             if (vetor[i].tamNomeEstacao > 0) free(vetor[i].nomeEstacao);
             if (vetor[i].tamNomeLinha > 0) free(vetor[i].nomeLinha);
         }
         free(vetor);
+        return NULL;
+    }
+
+    return vetor;
+}
+
+void handleOrderBy() {
+    char *arquivoDados = lerNomeArquivo();
+    char *campoOrdenacao = lerNomeArquivo();
+    char *arquivoSaida = lerNomeArquivo();
+
+    if (!arquivoDados || !campoOrdenacao || !arquivoSaida) {
+        printf("Falha no processamento do arquivo.\n");
+        if (arquivoDados) free(arquivoDados);
+        if (campoOrdenacao) free(campoOrdenacao);
+        if (arquivoSaida) free(arquivoSaida);
+        return;
+    }
+
+    int qtdValidos = 0; // contador de registros válidos lidos, que também indica a posição de inserção no vetor
+    int nroEstacoes = 0, nroPares = 0;
+    Registro *vetor = ordenarNaMemoria(arquivoDados, campoOrdenacao, &qtdValidos, &nroEstacoes, &nroPares);
+
+    if (!vetor) {
         free(arquivoDados); free(campoOrdenacao); free(arquivoSaida);
         return;
     }
@@ -169,6 +179,7 @@ void handleOrderBy() {
 
     // blocos ordenados são gravados e a memória alocada é liberada
     for (int i = 0; i < qtdValidos; i++) {
+        vetor[i].proximo = -1; // Garante ausência de lixo na reescrita
         escreverReg(fileSaida, &vetor[i]);
         if (vetor[i].tamNomeEstacao > 0) free(vetor[i].nomeEstacao);
         if (vetor[i].tamNomeLinha > 0) free(vetor[i].nomeLinha);
