@@ -134,3 +134,42 @@ bool nomeEstacaoJaExiste(FILE *file, const char *nomeEstacao, int tamNomeEstacao
     fseek(file, posOriginal, SEEK_SET); // devolve o ponteiro de arquivo para a posição original
     return false;
 }
+
+void lerReg(FILE *file, Registro *reg){
+    fread(&reg->codEstacao, sizeof(int), 1, file);
+    fread(&reg->codLinha, sizeof(int), 1, file);
+    fread(&reg->codProxEstacao, sizeof(int), 1, file);
+    fread(&reg->distProxEstacao, sizeof(int), 1, file);
+    fread(&reg->codLinhaIntegra, sizeof(int), 1, file);
+    fread(&reg->codEstIntegra, sizeof(int), 1, file);
+    lerNomeEstacao(file, reg);
+    lerNomeLinha(file, reg);
+}
+
+void lerNomeEstacao(FILE *file, Registro *reg){
+    fread(&reg->tamNomeEstacao, sizeof(int), 1, file);
+    //lê o nomeEstacao, se não for um campo NULO
+    if(reg->tamNomeEstacao != 0){
+        char *nomeEstacao = (char*) malloc(( sizeof(char) * reg->tamNomeEstacao ) + 1); // +1 para o caractere nulo
+        fread(nomeEstacao, sizeof(char), reg->tamNomeEstacao, file);
+        nomeEstacao[reg->tamNomeEstacao] = '\0';
+        reg->nomeEstacao = nomeEstacao;
+    } else {
+        //se for NULO, só indica que é
+        reg->nomeEstacao = "";
+    }
+}
+
+void lerNomeLinha(FILE *file, Registro *reg){
+    fread(&reg->tamNomeLinha, sizeof(int), 1, file);
+    //lê o nomeLinha, se não for um campo NULO
+    if(reg->tamNomeLinha != 0){
+        char *nomeLinha = (char*) malloc((sizeof(char) * reg->tamNomeLinha) + 1); // +1 para o caractere nulo
+        fread(nomeLinha, sizeof(char), reg->tamNomeLinha, file);
+        nomeLinha[reg->tamNomeLinha] = '\0';
+        reg->nomeLinha = nomeLinha;
+    } else {
+        //se for NULO, só indica que é
+        reg->nomeLinha = "";
+    }
+}

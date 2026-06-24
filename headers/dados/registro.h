@@ -65,4 +65,9 @@ void printReg(Registro *reg);
  */
 bool nomeEstacaoJaExiste(FILE *file, const char *nomeEstacao, int tamNomeEstacao);
 
+
+void lerReg(FILE *file, Registro *reg);
+void lerNomeEstacao(FILE *file, Registro *reg);
+void lerNomeLinha(FILE *file, Registro *reg);
+
 #endif
