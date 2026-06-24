@@ -11,7 +11,7 @@
  * o desempenho geral é O(n*m), onde n e m são as quantidades de registros válidos nos arquivos de dados envolvidos na junção, mas 
  * O(n²) para o pior caso
  */
-void handleNestedJoin();
+void handleJoin();
 
 /**
  * @brief handler que contém a lógica de execução da junção indexada entre os arquivos de dados

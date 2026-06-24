@@ -50,7 +50,7 @@ int main(){
             handleDeleteWhereIndexado();
             break;
         case 11: // NESTED JOIN
-            handleNestedJoin();
+            handleJoin();
             break;
         case 12: // INDEXED JOIN
             handleIndexedJoin();

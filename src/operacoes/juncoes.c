@@ -1,6 +1,7 @@
 #include "../../headers/operacoes/juncoes.h"
 #include "../../headers/operacoes/ordenacoes.h"
 #include "../../headers/dados/registro.h"
+#include "../../headers/operacoes/buscas.h"
 #include "../../headers/dados/cabecalho.h"
 #include "../../headers/utils.h"
 #include <stdbool.h>
@@ -24,10 +25,10 @@ void printRegsJuncao(Registro *reg1, Registro *reg2){
 }
 
 
-void nestedJoin(FILE *file1, FILE *file2){
+void join(FILE *fileDados1, FILE *fileDados2){
     //pula o cabeçalho dos dois arquivos
-    fseek(file1, TAM_CABECALHO, SEEK_SET);
-    fseek(file2, TAM_CABECALHO, SEEK_SET);
+    fseek(fileDados1, TAM_CABECALHO, SEEK_SET);
+    fseek(fileDados2, TAM_CABECALHO, SEEK_SET);
 
     //estruturas em memória que vão receber os campos
     //dos registros de seus respectivos arquivos
@@ -43,61 +44,61 @@ void nestedJoin(FILE *file1, FILE *file2){
     //o atual não satisfizer a condição de junção
     int rrn2 = -1;
     bool encontrou = false;
-    while(fread(&removido1, sizeof(char), 1, file1)){
+    while(fread(&removido1, sizeof(char), 1, fileDados1)){
         if(removido1 == '1') {
-            fseek(file1, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
+            fseek(fileDados1, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
             continue;
         }
 
-        fseek(file1, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
+        fseek(fileDados1, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
         //lê registro do primeiro arquivo
-        lerReg(file1, reg1);
+        lerReg(fileDados1, reg1);
 
-        while(fread(&removido2, sizeof(char), 1, file2)){
+        while(fread(&removido2, sizeof(char), 1, fileDados2)){
             if(removido2 == '1') {
-                fseek(file2, TAM_REG-1, SEEK_CUR);
+                fseek(fileDados2, TAM_REG-1, SEEK_CUR);
                 continue;
             }
             rrn2++;
 
             //lê os campos até o codProxEstacao do registro do segundo arquivo
-            fseek(file2, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
-            fread(&reg2->codEstacao, sizeof(int), 1, file2);
+            fseek(fileDados2, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
+            fread(&reg2->codEstacao, sizeof(int), 1, fileDados2);
 
             //se não satisfez a condição de junção, pula
             //para o próximo registro
             if(reg1->codProxEstacao != reg2->codEstacao){
                 int inicioProxReg = TAM_CABECALHO + (rrn2+1) * TAM_REG;
-                fseek(file2, inicioProxReg, SEEK_SET);
+                fseek(fileDados2, inicioProxReg, SEEK_SET);
                 continue;
             }
 
             encontrou = true;
             //lê o restante dos campos do registro do segundo arquivo
-            fread(&reg2->codLinha, sizeof(int), 1, file2);
-            fread(&reg2->codProxEstacao, sizeof(int), 1, file2);
-            fread(&reg2->distProxEstacao, sizeof(int), 1, file2);
-            fread(&reg2->codLinhaIntegra, sizeof(int), 1, file2);
-            fread(&reg2->codEstIntegra, sizeof(int), 1, file2);
-            lerNomeEstacao(file2, reg2);
-            lerNomeLinha(file2, reg2);
+            fread(&reg2->codLinha, sizeof(int), 1, fileDados2);
+            fread(&reg2->codProxEstacao, sizeof(int), 1, fileDados2);
+            fread(&reg2->distProxEstacao, sizeof(int), 1, fileDados2);
+            fread(&reg2->codLinhaIntegra, sizeof(int), 1, fileDados2);
+            fread(&reg2->codEstIntegra, sizeof(int), 1, fileDados2);
+            lerNomeEstacao(fileDados2, reg2);
+            lerNomeLinha(fileDados2, reg2);
 
             //printa o resultado
             printRegsJuncao(reg1, reg2);
 
             //pula os $, se houver
             int tamRestante = TAM_LIVRE_REG(reg2->tamNomeEstacao, reg2->tamNomeLinha);
-            if(tamRestante != 0) fseek(file2, tamRestante, SEEK_CUR);
+            if(tamRestante != 0) fseek(fileDados2, tamRestante, SEEK_CUR);
             if (reg2->tamNomeEstacao > 0) free(reg2->nomeEstacao);
             if (reg2->tamNomeLinha > 0) free(reg2->nomeLinha);
         }
 
-        fseek(file2, TAM_CABECALHO, SEEK_SET); //volta o ponteiro para o início do segundo arquivo
+        fseek(fileDados2, TAM_CABECALHO, SEEK_SET); //volta o ponteiro para o início do segundo arquivo
         rrn2 = -1; //reseta o contador de rrns do segundo arquivo
 
         //pula os $, se houver
         int tamRestante = TAM_LIVRE_REG(reg1->tamNomeEstacao, reg1->tamNomeLinha);
-        if(tamRestante != 0) fseek(file1, tamRestante, SEEK_CUR);
+        if(tamRestante != 0) fseek(fileDados1, tamRestante, SEEK_CUR);
         if (reg1->tamNomeEstacao > 0) free(reg1->nomeEstacao);
         if (reg1->tamNomeLinha > 0) free(reg1->nomeLinha);
     }
@@ -105,7 +106,77 @@ void nestedJoin(FILE *file1, FILE *file2){
     if(!encontrou) printf("Registro inexistente.\n");
 }
 
-void handleNestedJoin(){
+void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2){
+    /* TODO: colocar esse checagem no outro join */
+    char inconsistente = '0';
+    char statusDados1;
+    char statusDados2;
+    char statusIndice2;
+    fread(&statusDados1, sizeof(char), 1, fileDados1);
+    fread(&statusDados2, sizeof(char), 1, fileDados2);
+    fread(&statusIndice2, sizeof(char), 1, fileIndice2);
+    if(statusDados1 == inconsistente || statusDados2 == inconsistente || statusIndice2 == inconsistente){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    //pula o cabeçalho dos dois arquivos
+    fseek(fileDados1, TAM_CABECALHO, SEEK_SET);
+    fseek(fileDados2, TAM_CABECALHO, SEEK_SET);
+
+    //estruturas em memória que vão receber os campos
+    //dos registros de seus respectivos arquivos
+    Registro *reg1 = (Registro*) malloc(sizeof(Registro));
+    Registro *reg2 = (Registro*) malloc(sizeof(Registro));
+
+    //indicadores de status de remoção dos registros
+    char removido1;
+    char removido2;
+
+    //contador do rrn do registro atual do segundo arquivo
+    //é utilizado para pular para o próx registro quando
+    //o atual não satisfizer a condição de junção
+    bool encontrou = false;
+    while(fread(&removido1, sizeof(char), 1, fileDados1)){
+        if(removido1 == '1') {
+            fseek(fileDados1, TAM_REG-1, SEEK_CUR); //-1 porque, caso contrário, iria para o primeiro byte do codEstacao
+            continue;
+        }
+
+        fseek(fileDados1, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
+        //lê registro do primeiro arquivo
+        lerReg(fileDados1, reg1);
+
+        // indexa os pares por campo (posição fixa), posições sem filtro ficam como NULL
+        CampoValor *porCampo[NUM_CAMPOS_REGISTRO] = {0};
+        char codProxEstacaoStr[10];
+        sprintf(codProxEstacaoStr, "%d", reg1->codProxEstacao);
+        CampoValor condicaoJoin = {.campo = "codEstacao", .valor = codProxEstacaoStr};
+        porCampo[CAMPO_COD_ESTACAO] = &condicaoJoin;
+
+        /* TODO:  retornar o registro encontrado por um out param*/
+        int byteOffsetEncontrado = selectWhereIndexado(fileDados2, fileIndice2, porCampo, 1, false);
+        if(byteOffsetEncontrado > -1){
+            encontrou = true;
+            //+1 pra pular o bit de removido que já foi checado no selectWhereIndexado
+            //+4 pra pular os 4 bits de proxRRN
+            fseek(fileDados2, byteOffsetEncontrado+5, SEEK_SET);
+            lerReg(fileDados2, reg2);
+            printRegsJuncao(reg1, reg2);
+        }
+        fseek(fileDados2, TAM_CABECALHO, SEEK_SET); //volta o ponteiro para o início do segundo arquivo
+
+        //pula os $, se houver
+        int tamRestante = TAM_LIVRE_REG(reg1->tamNomeEstacao, reg1->tamNomeLinha);
+        if(tamRestante != 0) fseek(fileDados1, tamRestante, SEEK_CUR);
+        if (reg1->tamNomeEstacao > 0) free(reg1->nomeEstacao);
+        if (reg1->tamNomeLinha > 0) free(reg1->nomeLinha);
+    }
+
+    if(!encontrou) printf("Registro inexistente.\n");
+}
+
+void handleJoin(){
     char *arquivo1 = NULL;
     char *arquivo2 = NULL;
     FILE *file1 = NULL;
@@ -146,7 +217,7 @@ void handleNestedJoin(){
         return;
     }
 
-    nestedJoin(file1, file2);
+    join(file1, file2);
 
     free(arquivo1);
     free(arquivo2);
@@ -158,15 +229,35 @@ void handleNestedJoin(){
 void handleIndexedJoin(){
     char *arquivoDados1 = NULL;
     char *arquivoDados2 = NULL;
+    char *arquivoIndice2 = NULL;
     FILE *fileDados1 = NULL;
     FILE *fileDados2 = NULL;
+    FILE *fileIndice2 = NULL;
 
     arquivoDados1 = lerNomeArquivo();
-    if (!arquivoDados1) return;
+    if (!arquivoDados1){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
+    char codProxEstStr[10];
+    scanf("%s", codProxEstStr);
 
     arquivoDados2 = lerNomeArquivo();
-    if (!arquivoDados2) {
+    if (!arquivoDados2){
+        printf("Falha no processamento do arquivo.\n");
         free(arquivoDados1);
+        return;
+    } 
+
+    char codEstacaoStr[10];
+    scanf("%s", codEstacaoStr);
+
+    arquivoIndice2 = lerNomeArquivo();
+    if(!arquivoIndice2){
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados1);
+        free(arquivoDados2);
         return;
     }
 
@@ -177,15 +268,35 @@ void handleIndexedJoin(){
         free(arquivoDados2);
         return;
     }
-
+    
     fileDados2 = fopen(arquivoDados2, "rb");
     if (!fileDados2) {
         printf("Falha no processamento do arquivo.\n");
-        fclose(fileDados1);
         free(arquivoDados1);
         free(arquivoDados2);
+        fclose(fileDados1);
         return;
     }
+
+    fileIndice2 = fopen(arquivoIndice2, "rb");
+    if (!fileIndice2) {
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados1);
+        free(arquivoDados2);
+        fclose(fileDados1);
+        fclose(fileDados2);
+        return;
+    }
+
+    joinIndexado(fileDados1, fileDados2, fileIndice2);
+
+    free(arquivoDados1);
+    free(arquivoDados2);
+    free(arquivoIndice2);
+
+    fclose(fileDados1);
+    fclose(fileDados2);
+    fclose(fileIndice2);
 }
 
 void handleSortMergeJoin() {
