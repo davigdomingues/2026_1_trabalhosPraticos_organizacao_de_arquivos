@@ -198,7 +198,7 @@ void handleJoin(){
         return;
     }
 
-    char codProxEstStr[10];
+    char codProxEstStr[32];
     scanf("%s", codProxEstStr);
 
     arquivo2 = lerNomeArquivo();
@@ -208,8 +208,15 @@ void handleJoin(){
         return;
     } 
 
-    char codEstacaoStr[10];
+    char codEstacaoStr[32];
     scanf("%s", codEstacaoStr);
+
+    if(strcmp(codProxEstStr, "codProxEstacao") != 0 || strcmp(codEstacaoStr, "codEstacao") != 0){
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivo1);
+        free(arquivo2);
+        return;
+    }
 
     file1 = fopen(arquivo1, "rb");
     if (!file1) {
@@ -250,7 +257,7 @@ void handleIndexedJoin(){
         return;
     }
 
-    char codProxEstStr[10];
+    char codProxEstStr[32];
     scanf("%s", codProxEstStr);
 
     arquivoDados2 = lerNomeArquivo();
@@ -260,8 +267,16 @@ void handleIndexedJoin(){
         return;
     } 
 
-    char codEstacaoStr[10];
+    char codEstacaoStr[32];
     scanf("%s", codEstacaoStr);
+
+    if(strcmp(codProxEstStr, "codProxEstacao") != 0 || strcmp(codEstacaoStr, "codEstacao") != 0){
+        printf("Falha no processamento do arquivo.\n");
+        free(arquivoDados1);
+        free(arquivoDados2);
+        return;
+    }
+
 
     arquivoIndice2 = lerNomeArquivo();
     if(!arquivoIndice2){
