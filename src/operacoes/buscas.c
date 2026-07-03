@@ -416,7 +416,10 @@ int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares
     int numFiltros = popularParesPorCampo(pares, mPares, porCampo);
 
     if(porCampo[CAMPO_COD_ESTACAO] && fileIndice != NULL){
-        return selectWhereIndexado(fileDados, fileIndice, porCampo, numFiltros, true);
+        Registro *regEncontrado = NULL; //não vai ser utilizado
+        int byteOffset = selectWhereIndexado(fileDados, fileIndice, porCampo, numFiltros, true, &regEncontrado);
+        if(regEncontrado != NULL) free(regEncontrado);
+        return byteOffset;
     }
 
     Registro *reg = (Registro*) malloc(sizeof(Registro));
@@ -473,7 +476,7 @@ int selectWhere(FILE *fileDados, FILE *fileIndice, CampoValor *pares, int mPares
     else return 0;
 }
 
-int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print){
+int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print, Registro **regEncontrado){
     int chave = atoi(pares[CAMPO_COD_ESTACAO]->valor);
     //inicia a busca pelo nó raiz
     int rrnRaiz;
@@ -489,6 +492,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
             printf("Registro inexistente.\n");
             printf("\n");
         }
+        *regEncontrado = NULL;
         return -1;
     }
     else {
@@ -520,6 +524,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
             if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
             if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
             free(reg);
+            *regEncontrado = NULL;
             return -1;
         }
 
@@ -527,10 +532,7 @@ int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8],
             printReg(reg);
             printf("\n");
         }
-        
-        if (reg->tamNomeEstacao > 0) free(reg->nomeEstacao);
-        if (reg->tamNomeLinha > 0) free(reg->nomeLinha);
-        free(reg);
+        *regEncontrado = reg;
         return ponteiroRes;
     }
 }

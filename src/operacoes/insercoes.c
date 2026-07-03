@@ -537,9 +537,11 @@ bool insert(FILE *fileDados, FILE *fileIndice, CampoValor *valores, int mValores
         pares[0] = apenasCodEstacao;
 
         // Se a busca retornar um resultado com o mesmo código de estação, operação deve ser parada (duplicidade)
-        int res = selectWhereIndexado(fileDados, fileIndice, pares, 1, false);
+        Registro *regEncontrado = NULL; //não vai ser utilizado
+        int res = selectWhereIndexado(fileDados, fileIndice, pares, 1, false, &regEncontrado);
         if(res > 0){
             free(apenasCodEstacao);
+            free(regEncontrado);
             return true;
         }
 

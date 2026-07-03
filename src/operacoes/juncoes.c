@@ -26,6 +26,16 @@ void printRegsJuncao(Registro *reg1, Registro *reg2){
 
 
 void join(FILE *fileDados1, FILE *fileDados2){
+    char inconsistente = '0';
+    char statusDados1;
+    char statusDados2;
+    fread(&statusDados1, sizeof(char), 1, fileDados1);
+    fread(&statusDados2, sizeof(char), 1, fileDados2);
+    if(statusDados1 == inconsistente || statusDados2 == inconsistente){
+        printf("Falha no processamento do arquivo.\n");
+        return;
+    }
+
     //pula o cabeçalho dos dois arquivos
     fseek(fileDados1, TAM_CABECALHO, SEEK_SET);
     fseek(fileDados2, TAM_CABECALHO, SEEK_SET);
@@ -107,7 +117,6 @@ void join(FILE *fileDados1, FILE *fileDados2){
 }
 
 void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2){
-    /* TODO: colocar esse checagem no outro join */
     char inconsistente = '0';
     char statusDados1;
     char statusDados2;
@@ -154,16 +163,16 @@ void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2){
         CampoValor condicaoJoin = {.campo = "codEstacao", .valor = codProxEstacaoStr};
         porCampo[CAMPO_COD_ESTACAO] = &condicaoJoin;
 
-        /* TODO:  retornar o registro encontrado por um out param*/
-        int byteOffsetEncontrado = selectWhereIndexado(fileDados2, fileIndice2, porCampo, 1, false);
-        if(byteOffsetEncontrado > -1){
+        int byteoffsetReg = selectWhereIndexado(fileDados2, fileIndice2, porCampo, 1, false, &reg2);
+        if(byteoffsetReg > -1){
             encontrou = true;
-            //+1 pra pular o bit de removido que já foi checado no selectWhereIndexado
-            //+4 pra pular os 4 bits de proxRRN
-            fseek(fileDados2, byteOffsetEncontrado+5, SEEK_SET);
-            lerReg(fileDados2, reg2);
             printRegsJuncao(reg1, reg2);
+
+            if (reg2->tamNomeEstacao > 0) free(reg2->nomeEstacao);
+            if (reg2->tamNomeLinha > 0) free(reg2->nomeLinha);
+            free(reg2);
         }
+
         fseek(fileDados2, TAM_CABECALHO, SEEK_SET); //volta o ponteiro para o início do segundo arquivo
 
         //pula os $, se houver
@@ -172,6 +181,7 @@ void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2){
         if (reg1->tamNomeEstacao > 0) free(reg1->nomeEstacao);
         if (reg1->tamNomeLinha > 0) free(reg1->nomeLinha);
     }
+    free(reg1);
 
     if(!encontrou) printf("Registro inexistente.\n");
 }

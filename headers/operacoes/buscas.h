@@ -97,7 +97,7 @@ int confereCriteriosBusca(FILE *fileDados, Registro *reg, CampoValor *porCampo[8
  * @param print flag que indica se os registros que satisfazem os critérios de busca devem ser printados 
  * @return int sinal indica sucesso ou falha da operação
  */
-int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print);
+int selectWhereIndexado(FILE *fileDados, FILE *fileIndice, CampoValor *pares[8], int numFiltros, bool print, Registro **regEncontrado);
 
 /**
  * @brief busca recursivamente uma chave em uma árvore B
