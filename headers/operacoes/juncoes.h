@@ -27,6 +27,7 @@ void handleSortMergeJoin();
 /**
  * @brief dado dois arquivos de dados, utiliza a técnica de junção de loop aninhado para printar
  * os registros que satisfazem a condição de junção
+ * 
  * @param fileDados1: arquivo de dados 1, que tem como campo de junção o "codProxEstacao"
  * @param fileDados2: arquivo de dados 2, que tem como campo de junção o "codEstacao"
  */
@@ -35,6 +36,7 @@ void join(FILE *fileDados1, FILE *fileDados2);
 /**
  * @brief dado dois arquivos de dados, utiliza a técnica de junção de loop único para printar
  * os registros que satisfazem a condição de junção
+ * 
  * @param fileDados1: arquivo de dados 1, que tem como campo de junção o "codProxEstacao"
  * @param fileDados2: arquivo de dados 2, que tem como campo de junção o "codEstacao"
  * @param fileIndice2: arquivo de índice referente ao arquivo de dados 2
@@ -42,11 +44,25 @@ void join(FILE *fileDados1, FILE *fileDados2);
 void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2);
 
 /**
- * @brief de acordo com a formatação especificada, printa dois registros que satisfizeram
+ * @brief de acordo com a formatação especificada, printa dois registros que satisfazem
  * a condição de junção
+ * 
  * @param reg1: registro 1, que tem como campo de junção o "codProxEstacao"
  * @param reg2: registro 2, que tem como campo de junção o "codEstacao"
  */
 void printRegsJuncao(Registro *reg1, Registro *reg2);
+
+/**
+ * @brief dados dois vetores de registros ordenados, realiza a junção de mesclagem ordenada
+ * e printa os registros que satisfazem a condição de junção
+ * 
+ * @param vetor1: vetor de registros do arquivo 1, que tem como campo de junção o "codProxEstacao"
+ * @param qtd1: quantidade de registros válidos no vetor 1
+ * @param vetor2: vetor de registros do arquivo 2, que tem como campo de junção o "codEstacao"
+ * @param qtd2: quantidade de registros válidos no vetor 2
+ * @param campo1: campo de junção do vetor 1, que pode ser "codProxEstacao" ou "codEstacao"
+ * @param campo2: campo de junção do vetor 2
+ */
+void sortedMergeJoin(Registro *vetor1, int qtd1, Registro *vetor2, int qtd2, char *campo1, char *campo2);
 
 #endif
