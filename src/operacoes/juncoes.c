@@ -10,6 +10,63 @@
 #include <stdlib.h>
 #include <string.h>
 
+void sortedMergeJoin(Registro *vetor1, int qtd1, Registro *vetor2, int qtd2, char *campo1, char *campo2) {
+    int p1 = 0, p2 = 0; // p1: ponteiro para vetor1, p2: ponteiro para vetor2
+    bool encontrou = false;
+
+    // loop de mesclagem
+    while (p1 < qtd1 && p2 < qtd2) { // comparação na base do campo de ordenação escolhido para cada vetor
+        int val1 = (strcmp(campo1, "codEstacao") == 0) ? vetor1[p1].codEstacao : vetor1[p1].codProxEstacao;
+        int val2 = (strcmp(campo2, "codEstacao") == 0) ? vetor2[p2].codEstacao : vetor2[p2].codProxEstacao;
+
+        // valores nulos não se cruzam e devem ir para o final do arquivo
+        if (val1 == -1) { 
+            p1++; 
+            continue; 
+        }
+
+        if (val2 == -1) { 
+            p2++; 
+            continue; 
+        }
+
+        if (val1 < val2) p1++; // ponteiro do vetor 1 avança, buscando um valor igual ou maior ao do vetor 2
+
+        else if (val1 > val2) p2++; // mesma lógica, mas para o vetor 2
+
+        else {
+            encontrou = true;
+            int p2_temp = p2;
+            
+            // múltiplos "matches" sem perder a referência original a p2 (relação N:M)
+            while (p2_temp < qtd2) {
+                int val2_temp = (strcmp(campo2, "codEstacao") == 0) ? vetor2[p2_temp].codEstacao : vetor2[p2_temp].codProxEstacao;
+                if (val2_temp != val1) break;
+
+                // formatação nos valores codEstacao, nomeEstacao, nomeLinha, codProxEstacao e nomeEstacao do segundo arquivo
+                printf("%d ", vetor1[p1].codEstacao);
+                printf("%s ", vetor1[p1].nomeEstacao);
+                
+                if (vetor1[p1].tamNomeLinha > 0) printf("%s ", vetor1[p1].nomeLinha);
+                else printf("NULO ");
+                
+                if (vetor1[p1].codProxEstacao != -1) printf("%d ", vetor1[p1].codProxEstacao);
+                else printf("NULO ");
+                
+                if (vetor2[p2_temp].tamNomeEstacao > 0) printf("%s\n", vetor2[p2_temp].nomeEstacao);
+                else printf("NULO\n");
+                
+                p2_temp++;
+            }
+            p1++; // avança apenas p1, permitindo que o próximo p1 verifique a mesma base do p2, caso seja necessário
+        }
+    }
+
+    if (!encontrou) {
+        printf("Registro inexistente.\n");
+    }
+}
+
 void printRegsJuncao(Registro *reg1, Registro *reg2){
     //printa os campos do registro do primeiro arquivo
     printf("%d ", reg1->codEstacao);
@@ -23,7 +80,6 @@ void printRegsJuncao(Registro *reg1, Registro *reg2){
     else printf("%s ", "NULO");
     printf("\n");
 }
-
 
 void join(FILE *fileDados1, FILE *fileDados2){
     char inconsistente = '0';
@@ -362,60 +418,7 @@ void handleSortMergeJoin() {
         return;
     }
 
-    int p1 = 0, p2 = 0; // p1: ponteiro para vetor1, p2: ponteiro para vetor2
-    bool encontrou = false;
-
-    // loop de mesclagem
-    while (p1 < qtd1 && p2 < qtd2) { // comparação na base do campo de ordenação escolhido para cada vetor
-        int val1 = (strcmp(campo1, "codEstacao") == 0) ? vetor1[p1].codEstacao : vetor1[p1].codProxEstacao;
-        int val2 = (strcmp(campo2, "codEstacao") == 0) ? vetor2[p2].codEstacao : vetor2[p2].codProxEstacao;
-
-        // valores nulos não se cruzam e devem ir para o final do arquivo
-        if (val1 == -1) { 
-            p1++; 
-            continue; 
-        }
-
-        if (val2 == -1) { 
-            p2++; 
-            continue; 
-        }
-
-        if (val1 < val2) p1++; // ponteiro do vetor 1 avança, buscando um valor igual ou maior ao do vetor 2
-
-        else if (val1 > val2) p2++; // mesma lógica, mas para o vetor 2
-
-        else {
-            encontrou = true;
-            int p2_temp = p2;
-            
-            // múltiplos "matches" sem perder a referência original a p2 (relação N:M)
-            while (p2_temp < qtd2) {
-                int val2_temp = (strcmp(campo2, "codEstacao") == 0) ? vetor2[p2_temp].codEstacao : vetor2[p2_temp].codProxEstacao;
-                if (val2_temp != val1) break;
-
-                // formatação nos valores codEstacao, nomeEstacao, nomeLinha, codProxEstacao e nomeEstacao do segundo arquivo
-                printf("%d ", vetor1[p1].codEstacao);
-                printf("%s ", vetor1[p1].nomeEstacao);
-                
-                if (vetor1[p1].tamNomeLinha > 0) printf("%s ", vetor1[p1].nomeLinha);
-                else printf("NULO ");
-                
-                if (vetor1[p1].codProxEstacao != -1) printf("%d ", vetor1[p1].codProxEstacao);
-                else printf("NULO ");
-                
-                if (vetor2[p2_temp].tamNomeEstacao > 0) printf("%s\n", vetor2[p2_temp].nomeEstacao);
-                else printf("NULO\n");
-                
-                p2_temp++;
-            }
-            p1++; // avança apenas p1, permitindo que o próximo p1 verifique a mesma base do p2, caso seja necessário
-        }
-    }
-
-    if (!encontrou) {
-        printf("Registro inexistente.\n");
-    }
+    sortedMergeJoin(vetor1, qtd1, vetor2, qtd2, campo1, campo2);
 
     // liberação de memória
     for (int i = 0; i < qtd1; i++) {
