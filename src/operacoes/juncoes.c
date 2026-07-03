@@ -170,6 +170,9 @@ void join(FILE *fileDados1, FILE *fileDados2){
     }
 
     if(!encontrou) printf("Registro inexistente.\n");
+
+    free(reg1);
+    free(reg2);
 }
 
 void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2){
