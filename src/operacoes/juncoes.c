@@ -121,11 +121,11 @@ void join(FILE *fileDados1, FILE *fileDados2){
         lerReg(fileDados1, reg1);
 
         while(fread(&removido2, sizeof(char), 1, fileDados2)){
+            rrn2++;
             if(removido2 == '1') {
                 fseek(fileDados2, TAM_REG-1, SEEK_CUR);
                 continue;
             }
-            rrn2++;
 
             //lê os campos até o codProxEstacao do registro do segundo arquivo
             fseek(fileDados2, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
