@@ -195,7 +195,7 @@ void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2){
     //estruturas em memória que vão receber os campos
     //dos registros de seus respectivos arquivos
     Registro *reg1 = (Registro*) malloc(sizeof(Registro));
-    Registro *reg2 = (Registro*) malloc(sizeof(Registro));
+    Registro *reg2 = NULL; // selectWhereIndexado preencherá o ponteiro
 
     //indicadores de status de remoção dos registros
     char removido1;
@@ -223,13 +223,14 @@ void joinIndexado(FILE *fileDados1, FILE *fileDados2, FILE *fileIndice2){
         porCampo[CAMPO_COD_ESTACAO] = &condicaoJoin;
 
         int byteoffsetReg = selectWhereIndexado(fileDados2, fileIndice2, porCampo, 1, false, &reg2);
-        if(byteoffsetReg > -1){
+        if(byteoffsetReg > -1 && reg2 != NULL){
             encontrou = true;
             printRegsJuncao(reg1, reg2);
 
             if (reg2->tamNomeEstacao > 0) free(reg2->nomeEstacao);
             if (reg2->tamNomeLinha > 0) free(reg2->nomeLinha);
             free(reg2);
+            reg2 = NULL;
         }
 
         fseek(fileDados2, TAM_CABECALHO, SEEK_SET); //volta o ponteiro para o início do segundo arquivo
