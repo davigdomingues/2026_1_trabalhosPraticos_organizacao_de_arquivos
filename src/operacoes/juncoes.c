@@ -127,7 +127,7 @@ void join(FILE *fileDados1, FILE *fileDados2){
                 continue;
             }
 
-            //lê os campos até o codProxEstacao do registro do segundo arquivo
+            //lê os campos até o codEstacao do registro do segundo arquivo
             fseek(fileDados2, DADOS_OFF_PROXRRN - 1, SEEK_CUR); //pula os 4 bytes de proxRRN
             fread(&reg2->codEstacao, sizeof(int), 1, fileDados2);
 
